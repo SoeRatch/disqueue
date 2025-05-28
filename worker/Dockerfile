@@ -1,0 +1,13 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copy requirements.txt from root because context is root which is set in docker-compose.yml
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy Worker source code from worker directory into container
+COPY worker/ .
+
+CMD ["python", "main.py"]

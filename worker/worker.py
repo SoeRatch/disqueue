@@ -12,6 +12,7 @@ def start_worker():
     print("Worker started...")
     while True:
         try:
+            # Continuously listens to Redis Stream (XREAD) for new jobs.
             res = r.xread({JOB_STREAM: "$"}, block=5000, count=1)
             if not res:
                 continue
