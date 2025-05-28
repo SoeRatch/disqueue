@@ -1,8 +1,8 @@
-# api/routes.py
+# api/job_routes.py
 
 from fastapi import APIRouter, HTTPException
 from uuid import uuid4
-from queue.redis_queue import enqueue_job, get_job_status
+from task_queues.redis_queue import enqueue_job, get_job_status
 from api.models import JobRequest, JobResponse
 
 router = APIRouter()

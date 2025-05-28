@@ -2,7 +2,7 @@
 
 import json
 import time
-from queue.redis_queue import r, JOB_STREAM, mark_job_status
+from task_queues.redis_queue import r, JOB_STREAM, mark_job_status
 
 def process(payload: dict):
     print("Processing:", payload)
