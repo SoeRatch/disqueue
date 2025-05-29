@@ -10,4 +10,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy Worker source code from worker directory into container
 COPY . .
 
-CMD ["python", "worker/main.py"]
+CMD ["python", "worker/worker.py"]

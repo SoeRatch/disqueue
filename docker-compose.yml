@@ -16,6 +16,7 @@ services:
       - redis
     environment:
       - REDIS_URL=redis://redis:6379
+      - PYTHONPATH=/app
     ports:
       - "8000:8000"
     volumes:
@@ -31,6 +32,7 @@ services:
       - redis
     environment:
       - REDIS_URL=redis://redis:6379
+      - PYTHONPATH=/app
     volumes:
       - .:/app
-    command: python main.py
+    command: python worker/worker.py
