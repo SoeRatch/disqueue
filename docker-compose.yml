@@ -33,6 +33,7 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
     volumes:
       - .:/app
     command: python worker/worker.py
