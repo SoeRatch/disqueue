@@ -1,4 +1,4 @@
-# queue/redis_queue.py
+# task_queues/redis_queue.py
 
 import redis
 import json
@@ -9,6 +9,9 @@ r = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
 JOB_STREAM = "job_stream"
 JOB_STATUS_HASH = "job_status"
 
+MAX_RETRIES = 3
+JOB_RETRY_HASH = "job_retries"
+
 
 def enqueue_job(job_id: str, payload: dict) -> bool:
     try:
@@ -17,6 +20,9 @@ def enqueue_job(job_id: str, payload: dict) -> bool:
 
         # hset sets field in hash. hashes are efficient for storing per-job metadata (like status)
         r.hset(JOB_STATUS_HASH, job_id, "queued")
+
+        # Initialize retry count
+        r.hset(JOB_RETRY_HASH, job_id, 0)
         return True
     except Exception as e:
         print(f"Enqueue error: {e}")
@@ -32,3 +38,15 @@ def get_job_status(job_id: str) -> str:
 # Updates the status in the Redis Hash.
 def mark_job_status(job_id: str, status: str):
     r.hset(JOB_STATUS_HASH, job_id, status)
+
+
+# Retry helpers
+def increment_retry_count(job_id: str) -> int:
+    return r.hincrby(JOB_RETRY_HASH, job_id, 1)
+
+def get_retry_count(job_id: str) -> int:
+    retry_count = r.hget(JOB_RETRY_HASH, job_id)
+    return int(retry_count) if retry_count else 0
+
+def clear_retry_count(job_id: str):
+    r.hdel(JOB_RETRY_HASH, job_id)
