@@ -6,11 +6,11 @@ from config.settings import settings
 
 r = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
 
-JOB_STREAM = "job_stream"
-JOB_STATUS_HASH = "job_status"
+JOB_STREAM = settings.job_stream
+JOB_STATUS_HASH = settings.job_status_hash
 
-MAX_RETRIES = 3
-JOB_RETRY_HASH = "job_retries"
+JOB_RETRY_HASH = settings.job_retry_hash
+MAX_RETRIES = settings.max_retries
 
 
 def enqueue_job(job_id: str, payload: dict) -> bool:

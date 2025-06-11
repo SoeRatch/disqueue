@@ -61,16 +61,27 @@ disqueue/
     cd disqueue
     ```
 
-2. **Start Docker Services**:
+2. **Create the `.env` File**:
+
+   Copy the provided `.env.example` file and update it with your local environment credentials:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   > **Note**: Never commit the `.env` file to version control. It should be ignored in `.gitignore`.
+
+
+3. **Start Docker Services**:
 
     On first run or after making changes to dependencies:
     ```bash
-    docker-compose up --build -d
+    docker compose up --build -d
     ```
 
     On subsequent runs:
     ```bash
-    docker-compose up -d
+    docker compose up -d
     ```
 
     Services started:
@@ -137,14 +148,13 @@ The system will retry the job up to the `MAX_RETRIES` limit.
 
 ## Configuration
 
-You can configure retry logic and Redis constants in `task_queues/redis_queue.py`:
+You can configure retry logic and Redis constants in `config/settings.py`:
 
 ```python
-MAX_RETRIES = 3  # Number of retry attempts for failed jobs
-
-JOB_STREAM = "job_stream"
-JOB_STATUS_HASH = "job_status"
-JOB_RETRY_HASH = "job_retries"
+job_stream: str = "job_stream"
+job_status_hash: str = "job_status"
+job_retry_hash: str = "job_retries"
+max_retries: int = 3 # Number of retry attempts for failed jobs
 ```
 
 ---
