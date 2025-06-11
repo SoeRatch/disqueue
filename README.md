@@ -168,23 +168,43 @@ The system will retry the job up to the `MAX_RETRIES` limit.
 
 ## Configuration
 
-You can configure retry logic and Redis constants in `config/settings.py`:
+Environment configuration is managed through `.env` and `config/settings.py`.
 
-```python
-job_stream: str = "job_stream"
-job_status_hash: str = "job_status"
-job_retry_hash: str = "job_retries"
-max_retries: int = 3 # Number of retry attempts for failed jobs
+`.env`:
+
+```
+REDIS_URL=redis://redis:6379
+API_PORT=8000
 ```
 
+`config/settings.py`:
+
+```python
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    REDIS_URL: str
+    job_stream: str = "job_stream"
+    job_status_hash: str = "job_status"
+    job_retry_hash: str = "job_retries"
+    max_retries: int = 3
+
+    class Config:
+        env_file = ".env"
+
+settings = Settings()
+```
 ---
 
 ## Future Improvements
 
 - Add UI Dashboard to view jobs
 - Add priority-based queues
-- Implement job expiration / TTL
+- Implement job expiration / TTL and cleanup support
 - Support delayed/scheduled jobs
+- Result storage and retrieval
+- Support for multiple queues
+- Health checks and metrics
 
 ---
 
@@ -194,6 +214,8 @@ max_retries: int = 3 # Number of retry attempts for failed jobs
 - FastAPI
 - Redis Streams
 - Docker / Docker Compose
+- Pydantic
+- Uvicorn
 
 ---
 

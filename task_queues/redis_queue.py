@@ -12,6 +12,9 @@ JOB_STATUS_HASH = settings.job_status_hash
 JOB_RETRY_HASH = settings.job_retry_hash
 MAX_RETRIES = settings.max_retries
 
+import logging
+from config.logging_config import configure_logging
+configure_logging()
 
 def enqueue_job(job_id: str, payload: dict) -> bool:
     try:
@@ -25,7 +28,7 @@ def enqueue_job(job_id: str, payload: dict) -> bool:
         r.hset(JOB_RETRY_HASH, job_id, 0)
         return True
     except Exception as e:
-        print(f"Enqueue error: {e}")
+        logging.error(f"Enqueue error: {e}")
         return False
     
 
