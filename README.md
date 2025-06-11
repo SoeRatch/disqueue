@@ -3,6 +3,26 @@
 **Disqueue** is a minimal, lightweight distributed job queue system inspired by Celery and BullMQ, built using FastAPI, Redis Streams, and Docker. It allows you to queue background jobs, track their status, and retry on failure — all while keeping things simple and easy to reason about.
 
 ---
+## Table of Contents
+
+- [Features](#features)  
+- [Stack](#stack)  
+- [Directory Structure](#directory-structure)  
+- [Getting Started](#getting-started)  
+  - [Prerequisites](#prerequisites)  
+  - [Setup Instructions](#setup-instructions)  
+- [Usage](#example-usage)  
+  - [Queue a Job](#1-queue-a-job)  
+  - [Check Job Status](#2-check-job-status)  
+  - [Simulate a Failing Job](#3-simulate-a-failing-job)  
+- [Retry Mechanism](#retry-mechanism)  
+- [Configuration](#configuration)  
+- [Future Improvements](#future-improvements)  
+- [Technologies Used](#technologies-used)  
+- [Author](#author)  
+- [License](#license)
+
+---
 
 ## Features
 
