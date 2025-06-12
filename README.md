@@ -17,7 +17,7 @@
   - [Simulate a Failing Job](#3-simulate-a-failing-job)  
 - [Retry Mechanism](#retry-mechanism)  
 - [Configuration](#configuration)  
-- [Future Improvements](#future-improvements)  
+- [What’s Next](#whats-next) 
 - [Technologies Used](#technologies-used)  
 - [Author](#author)  
 - [License](#license)
@@ -196,15 +196,28 @@ settings = Settings()
 ```
 ---
 
-## Future Improvements
+## What’s Next
 
-- Add UI Dashboard to view jobs
-- Add priority-based queues
-- Implement job expiration / TTL and cleanup support
-- Support delayed/scheduled jobs
-- Result storage and retrieval
-- Support for multiple queues
-- Health checks and metrics
+We’ve completed Phase 1. Here’s a roadmap for the upcoming development phases:
+
+### Phase 2 (Stable features)
+- **Job Prioritization**
+- **Job Cancellation Support**
+- **Dead-letter queue (DLQ)** for jobs that repeatedly fails.
+- **Exponential backoff retries** to avoid hammering systems.
+- **Idempotency & deduplication** to prevent duplicate processing.
+- **Graceful shutdown** and signal handling to cleanly stop workers.
+- **Support for multiple queues**
+- **Basic dashboard** (CLI or minimal UI) to inspect jobs and statuses.
+
+### Phase 3 (Advanced production-ready features)
+- **Scheduling/delayed jobs** – enqueue for future execution
+- Horizontal **scaling** (run multiple worker replicas)
+- **Distributed locking** (e.g., via Redis Redlock) for exactly-once delivery
+- **Rate limiting** per job type or tenant
+- **Priority queues** to process high-level jobs first
+- **Observability & metrics** (Prometheus, Grafana)
+- **Multi-tenant support** for isolating workloads across users/projects
 
 ---
 
