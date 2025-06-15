@@ -6,7 +6,9 @@
 ## Table of Contents
 
 - [Features](#features)  
-- [Stack](#stack)  
+- [Stack](#stack)
+- [Architecture Overview](#architecture-overview)
+- [Components](#components) 
 - [Directory Structure](#directory-structure)  
 - [Getting Started](#getting-started)  
   - [Prerequisites](#prerequisites)  
@@ -31,6 +33,7 @@
 - **Redis Integration**: Utilizes Redis Streams and Hashes for job management.
 - **Retry Mechanism**: Automatic retries for failed jobs up to a configurable maximum.
 - **Dockerized Environment**: Consistent and portable development setup.
+- **Multiple priority levels**: `high`, `medium`, `low`
 
 ---
 
@@ -40,6 +43,35 @@
 - **Redis Streams** - as a message queue
 - **Docker** & **Docker Compose** - for local dev & containerization
 - **Python** - core language for API & worker
+
+---
+
+## Architecture Overview
+
+- **Redis Streams** are used to enqueue jobs by priority.
+- **Redis Hashes** store job metadata (status, retry counts, last processed message ID).
+- **Worker** pulls jobs in strict priority order and processes them.
+- **Retry mechanism** ensures failed jobs are retried up to a max limit.
+- **FastAPI server** exposes an endpoint to submit jobs.
+
+---
+
+## Components
+
+### `api/` – FastAPI Service
+- POST `/jobs/` to submit a job with payload and priority.
+  
+### `worker/worker.py` – Worker Process
+- Continuously reads from Redis Streams (`XREAD`)
+- Honors priority: high → medium → low
+- Persists `last_id` per stream to avoid duplication
+
+### `task_queues/redis_queue.py`
+- Redis utility functions for:
+  - Enqueueing
+  - Job status tracking
+  - Retry count management
+  - Stream last ID tracking
 
 ---
 
@@ -116,20 +148,26 @@ disqueue/
 
 ### 1. Queue a Job:
 
-```bash
-curl -X POST http://localhost:8000/jobs/ \
-     -H "Content-Type: application/json" \
-     -d '{"payload": {"task": "test"}}'
-```
+ POST `/jobs/` to submit a job with payload and priority.
 
-Response:
+  ```bash
+  curl -X POST http://localhost:8000/jobs/ \
+      -H "Content-Type: application/json" \
+      -d '{"payload": {"msg": "urgent"}, "priority": "high"}'
 
-```json
-{
-  "job_id": "uuid-1234",
-  "status": "queued"
-}
-```
+  curl -X POST http://localhost:8000/jobs/ \
+      -H "Content-Type: application/json" \
+      -d '{"payload": {"msg": "medium"}, "priority": "medium"}'
+  ```
+
+ Response:
+
+  ```json
+  {
+    "job_id": "uuid-1234",
+    "status": "queued"
+  }
+  ```
 
 ### 2. Check Job Status:
 
@@ -149,9 +187,10 @@ Response:
 ### 3. Simulate a Failing Job:
 
 ```bash
+
 curl -X POST http://localhost:8000/jobs/ \
      -H "Content-Type: application/json" \
-     -d '{"payload": {"fail": true}}'
+     -d '{"payload": {"fail": true}, "priority": "medium"}'
 ```
 
 The system will retry the job up to the `MAX_RETRIES` limit.
