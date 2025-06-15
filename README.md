@@ -29,30 +29,30 @@
 ## Features
 
 - **Job Submission**: Submit jobs via a REST API to queue jobs.
-- **Status Tracking**: Monitor job statuses (`queued`, `in_progress`, `retrying`, `completed`, `failed`).
-- **Redis Integration**: Utilizes Redis Streams and Hashes for job management.
+- **Status Tracking**: Monitor job states like `queued`, `in_progress`, `retrying`, `completed`, and `failed`.
+- **Redis Integration**: Uses Redis Streams and Hashes for job management.
 - **Retry Mechanism**: Automatic retries for failed jobs up to a configurable maximum.
-- **Dockerized Environment**: Consistent and portable development setup.
-- **Multiple priority levels**: `high`, `medium`, `low`
+- **Priority Handling**: Supports `high`, `medium`, and `low` priority job queues.
+- **Dockerized**: Easily reproducible local development environment.
 
 ---
 
 ## Stack
 
-- **FastAPI** - for REST APIs
-- **Redis Streams** - as a message queue
-- **Docker** & **Docker Compose** - for local dev & containerization
-- **Python** - core language for API & worker
+- **FastAPI** – REST API server
+- **Redis Streams** – Priority queues
+- **Python** – Worker logic and APIs
+- **Docker & Docker Compose** – Containerization
 
 ---
 
 ## Architecture Overview
 
-- **Redis Streams** are used to enqueue jobs by priority.
-- **Redis Hashes** store job metadata (status, retry counts, last processed message ID).
-- **Worker** pulls jobs in strict priority order and processes them.
-- **Retry mechanism** ensures failed jobs are retried up to a max limit.
-- **FastAPI server** exposes an endpoint to submit jobs.
+- Jobs are added to Redis Streams based on their priority level.
+- Job metadata like status, retry count, and last stream ID is stored in Redis Hashes.
+- Worker continuously reads from streams in strict priority order.
+- Failed jobs are retried up to a max retry limit.
+- FastAPI provides endpoints to submit and query jobs.
 
 ---
 
@@ -62,16 +62,15 @@
 - POST `/jobs/` to submit a job with payload and priority.
   
 ### `worker/worker.py` – Worker Process
-- Continuously reads from Redis Streams (`XREAD`)
-- Honors priority: high → medium → low
-- Persists `last_id` per stream to avoid duplication
+- Continuously reads from Redis Streams (`XREAD`).
+- Enforces priority: high → medium → low .
+- Persists `last_id` per stream to avoid duplication.
 
 ### `task_queues/redis_queue.py`
 - Redis utility functions for:
   - Enqueueing
-  - Job status tracking
-  - Retry count management
-  - Stream last ID tracking
+  - Tracking job status and retries
+  - Managing stream offsets
 
 ---
 
@@ -222,11 +221,15 @@ API_PORT=8000
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    REDIS_URL: str
-    job_stream: str = "job_stream"
+    REDIS_URL: str = "redis://localhost:6379/0"
+    job_stream_high: str = "job_stream_high"
+    job_stream_medium: str = "job_stream_medium"
+    job_stream_low: str = "job_stream_low"
     job_status_hash: str = "job_status"
     job_retry_hash: str = "job_retries"
     max_retries: int = 3
+    default_priority: str = "medium"
+    job_last_ids_hash: str = "job_last_ids"
 
     class Config:
         env_file = ".env"
@@ -239,24 +242,24 @@ settings = Settings()
 
 We’ve completed Phase 1. Here’s a roadmap for the upcoming development phases:
 
-### Phase 2 (Stable features)
-- **Job Prioritization**
-- **Job Cancellation Support**
-- **Dead-letter queue (DLQ)** for jobs that repeatedly fails.
-- **Exponential backoff retries** to avoid hammering systems.
-- **Idempotency & deduplication** to prevent duplicate processing.
-- **Graceful shutdown** and signal handling to cleanly stop workers.
-- **Support for multiple queues**
-- **Basic dashboard** (CLI or minimal UI) to inspect jobs and statuses.
+### Phase 2 (In Progress – Stable Core Features)
+- ✅ **Job Prioritization** – High, medium, and low priority queues (Completed)
+- **Job Cancellation Support** – Ability to cancel in-progress or queued jobs
+- **Dead-letter Queue (DLQ)** – Handle jobs that fail repeatedly
+- **Exponential Backoff Retries** – Gradually increase retry intervals to reduce pressure
+- **Idempotency & Deduplication** – Prevent duplicate job processing
+- **Graceful Shutdown** – Cleanly stop workers on termination signals
+- **Support for Multiple Queues** – Handle independent job streams
+- **Basic Dashboard** – CLI or minimal web UI to view jobs and statuses
 
-### Phase 3 (Advanced production-ready features)
-- **Scheduling/delayed jobs** – enqueue for future execution
-- Horizontal **scaling** (run multiple worker replicas)
-- **Distributed locking** (e.g., via Redis Redlock) for exactly-once delivery
-- **Rate limiting** per job type or tenant
-- **Priority queues** to process high-level jobs first
-- **Observability & metrics** (Prometheus, Grafana)
-- **Multi-tenant support** for isolating workloads across users/projects
+### Phase 3 (Planned – Advanced Production-Ready Features)
+- **Delayed Job Scheduling** – Enqueue jobs for future execution
+- **Horizontal Scaling** – Run multiple worker instances for concurrency
+- **Distributed Locking** – Ensure exactly-once processing using Redis Redlock or similar
+- **Rate Limiting** – Throttle job processing per job type or tenant
+- **Advanced Priority Queues** – Improve control over job ordering and preemption
+- **Observability & Metrics** – Add monitoring with Prometheus and Grafana
+- **Multi-Tenant Support** – Isolate jobs across users or projects
 
 ---
 
@@ -265,7 +268,7 @@ We’ve completed Phase 1. Here’s a roadmap for the upcoming development pha
 - Python
 - FastAPI
 - Redis Streams
-- Docker / Docker Compose
+- Docker
 - Pydantic
 - Uvicorn
 
