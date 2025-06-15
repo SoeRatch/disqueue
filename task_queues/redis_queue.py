@@ -6,20 +6,29 @@ from config.settings import settings
 
 r = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
 
-JOB_STREAM = settings.job_stream
+# JOB_STREAM = settings.job_stream
 JOB_STATUS_HASH = settings.job_status_hash
 
 JOB_RETRY_HASH = settings.job_retry_hash
 MAX_RETRIES = settings.max_retries
 
+JOB_LAST_ID_HASH = settings.job_last_ids_hash
+
+
 import logging
 from config.logging_config import configure_logging
 configure_logging()
 
-def enqueue_job(job_id: str, payload: dict) -> bool:
+def enqueue_job(job_id: str, payload: dict, priority: str = settings.default_priority) -> bool:
     try:
+        stream_name = getattr(settings, f"job_stream_{priority}")
+
         # xadd adds message to stream which has a log-like structure.
-        r.xadd(JOB_STREAM, {"job_id": job_id, "payload": json.dumps(payload)})
+        r.xadd(stream_name,{
+            "job_id": job_id,
+            "payload": json.dumps(payload),
+            "priority": priority
+            })
 
         # hset sets field in hash. hashes are efficient for storing per-job metadata (like status)
         r.hset(JOB_STATUS_HASH, job_id, "queued")
@@ -53,3 +62,21 @@ def get_retry_count(job_id: str) -> int:
 
 def clear_retry_count(job_id: str):
     r.hdel(JOB_RETRY_HASH, job_id)
+
+
+# last ids helpers
+def get_last_id(stream: str) -> str:
+    # "0" reads from the beginning of the stream. Better for fault-tolerant and durability.
+    # where as "$" reads only new messages, ones added after this command is run.
+    # Initialize last_ids from Redis or fallback to "0"
+    return r.hget(JOB_LAST_ID_HASH, stream) or "0"
+
+def set_last_id(stream: str, msg_id: str):
+    r.hset(JOB_LAST_ID_HASH, stream, msg_id)
+
+
+# Clears the saved last IDs for all priority streams.
+# Useful during development or testing to reprocess all jobs from the beginning of each stream.
+# Should not be used in production unless we are intentionally replaying jobs.
+def clear_last_ids():
+    r.delete(JOB_LAST_ID_HASH)
