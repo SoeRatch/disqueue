@@ -15,10 +15,13 @@ import logging
 from config.logging_config import configure_logging
 configure_logging()
 
-STATUS_IN_PROGRESS = "in_progress"
-STATUS_COMPLETED = "completed"
-STATUS_RETRYING = "retrying"
-STATUS_FAILED = "failed"
+from config.status_codes import (
+    STATUS_IN_PROGRESS,
+    STATUS_COMPLETED,
+    STATUS_RETRYING,
+    STATUS_FAILED,
+    STATUS_CANCELLED
+)
 
 priority_streams = [
     settings.job_stream_high,
@@ -87,6 +90,15 @@ def start_worker():
                 logging.info(f"\nReceived job {job_id} from {stream}")
 
                 current_status = get_job_status(job_id)
+                
+                if current_status == STATUS_CANCELLED:
+                    logging.info(f"Job {job_id} is cancelled. Skipping.")
+                    # Advance last_id even if skipped, so we don't re-read the same cancelled job
+                    last_ids[stream] = msg_id
+                    set_last_id(stream, msg_id)
+                    job_found = True
+                    continue  # Skip this job
+                
                 if current_status != STATUS_RETRYING:
                     mark_job_status(job_id, STATUS_IN_PROGRESS)
                 

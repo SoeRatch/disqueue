@@ -13,6 +13,10 @@ JOB_RETRY_HASH = settings.job_retry_hash
 MAX_RETRIES = settings.max_retries
 
 JOB_LAST_ID_HASH = settings.job_last_ids_hash
+from config.status_codes import (
+    STATUS_QUEUED,
+    STATUS_CANCELLED
+)
 
 
 import logging
@@ -31,7 +35,7 @@ def enqueue_job(job_id: str, payload: dict, priority: str = settings.default_pri
             })
 
         # hset sets field in hash. hashes are efficient for storing per-job metadata (like status)
-        r.hset(JOB_STATUS_HASH, job_id, "queued")
+        r.hset(JOB_STATUS_HASH, job_id, STATUS_QUEUED)
 
         # Initialize retry count
         r.hset(JOB_RETRY_HASH, job_id, 0)
@@ -49,6 +53,7 @@ def get_job_status(job_id: str) -> str:
 
 # Updates the status in the Redis Hash.
 def mark_job_status(job_id: str, status: str):
+    """Generic method to update the job's status in Redis."""
     r.hset(JOB_STATUS_HASH, job_id, status)
 
 
@@ -94,3 +99,13 @@ def send_to_dlq(job_id: str, payload: dict, reason: str = "Maximum retries excee
         logging.info(f"Job {job_id} moved to DLQ: {reason}")
     except Exception as e:
         logging.error(f"Failed to add job {job_id} to DLQ: {e}")
+
+
+def cancel_job(job_id: str):
+    if r.hexists(JOB_STATUS_HASH, job_id):
+        r.hset(JOB_STATUS_HASH, job_id, STATUS_CANCELLED)
+        logging.info(f"Job {job_id} has been cancelled.")
+        return True
+    else:
+        logging.warning(f"Cancel failed: Job {job_id} not found.")
+        return False

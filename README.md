@@ -1,6 +1,6 @@
 # Disqueue
 
-**Disqueue** is a minimal, lightweight distributed job queue system inspired by Celery and BullMQ, built using FastAPI, Redis Streams, and Docker. It allows you to queue background jobs, track their status, and retry on failure — all while keeping things simple and easy to reason about.
+**Disqueue** is a minimal, lightweight distributed job queue system inspired by Celery and BullMQ. Built with FastAPI, Redis Streams, and Docker, it supports job prioritization, retries, cancellation, and a dead-letter queue — all while staying simple and easy to reason about.
 
 ---
 ## Table of Contents
@@ -30,12 +30,13 @@
 ## Features
 
 - **Job Submission**: Submit jobs via a REST API to queue jobs.
-- **Status Tracking**: Monitor job states like `queued`, `in_progress`, `retrying`, `completed`, and `failed`.
+- **Status Tracking**: Monitor job states like `queued`, `in_progress`, `retrying`, `completed`,`failed` and `cancelled`.
 - **Redis Integration**: Uses Redis Streams and Hashes for job management.
 - **Retry Mechanism**: Automatic retries for failed jobs up to a configurable maximum.
 - **Dockerized**: Easily reproducible local development environment.
 - **Priority Handling**: Supports `high`, `medium`, and `low` priority job queues.
 - **Dead-letter Queue (DLQ)**: Automatically moves jobs to a DLQ after exceeding retry limit for later inspection or manual retry.
+- **Job Cancellation**: Cancel jobs before they are processed by a worker.
 
 
 ---
@@ -56,18 +57,22 @@
 - Worker continuously reads from streams in strict priority order.
 - Failed jobs are retried up to a max retry limit and then moved to a Dead-letter Queue (DLQ).
 - FastAPI provides endpoints to submit and query jobs.
+- Cancelled jobs are marked with cancelled status and skipped by workers, while maintaining stream offsets to avoid reprocessing.
 
 ---
 
 ## Components
 
 ### `api/` – FastAPI Service
-- POST `/jobs/` to submit a job with payload and priority.
+- POST `/jobs/` – Submit a job with payload and priority.
+- GET `/jobs/{job_id}` – Retrieve the status of a specific job.
+- POST `/jobs/{job_id}/cancel` – Cancel a job if it's still queued or retrying.
   
 ### `worker/worker.py` – Worker Process
 - Continuously reads from Redis Streams (`XREAD`).
 - Enforces priority: high → medium → low .
 - Persists `last_id` per stream to avoid duplication.
+- Skips jobs marked as cancelled and safely moves past them by updating the stream offset.
 
 ### `task_queues/redis_queue.py`
 - Redis utility functions for:
@@ -198,6 +203,21 @@ curl -X POST http://localhost:8000/jobs/ \
 
 The system will retry the job up to the `MAX_RETRIES` limit.
 
+### 4. Cancel a Queued Job:
+Cancels a job that is either queued or retrying.
+```bash
+curl -X POST http://localhost:8000/jobs/uuid-1234/cancel
+```
+Response:
+
+```json
+{
+  "job_id": "uuid-1234",
+  "status": "cancelled"
+}
+```
+> **Note:** If the job is already in progress or completed, cancellation will not stop it.
+
 ---
 
 ## Retry Mechanism
@@ -267,7 +287,7 @@ We’ve completed Phase 1. Here’s a roadmap for the upcoming development pha
 
 ### Phase 2 (In Progress – Stable Core Features)
 - ✅ **Job Prioritization** – High, medium, and low priority queues (Completed)
-- **Job Cancellation Support** – Ability to cancel in-progress or queued jobs
+- ✅ **Job Cancellation Support** – Ability to cancel in-progress or queued jobs
 - ✅ **Dead-letter Queue (DLQ)** – Handle jobs that fail repeatedly
 - **Exponential Backoff Retries** – Gradually increase retry intervals to reduce pressure
 - **Idempotency & Deduplication** – Prevent duplicate job processing
