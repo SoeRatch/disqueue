@@ -201,6 +201,21 @@ curl -X POST http://localhost:8000/jobs/ \
 
 The system will retry the job up to the `MAX_RETRIES` limit.
 
+### 4. Cancel a Queued Job:
+Cancels a job that is either queued or retrying.
+```bash
+curl -X POST http://localhost:8000/jobs/uuid-1234/cancel
+```
+Response:
+
+```json
+{
+  "job_id": "uuid-1234",
+  "status": "cancelled"
+}
+```
+> **Note:** If the job is already in progress or completed, cancellation will not stop it.
+
 ---
 
 ## Retry Mechanism

@@ -50,6 +50,7 @@ def get_job_status(job_id: str) -> str:
 
 # Updates the status in the Redis Hash.
 def mark_job_status(job_id: str, status: str):
+    """Generic method to update the job's status in Redis."""
     r.hset(JOB_STATUS_HASH, job_id, status)
 
 
