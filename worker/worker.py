@@ -6,7 +6,8 @@ from task_queues.redis_queue import (
     r,get_job_status, mark_job_status,
     increment_retry_count, clear_retry_count,
     MAX_RETRIES,
-    get_last_id, set_last_id
+    get_last_id, set_last_id,
+    send_to_dlq
 )
 from config.settings import settings
 
@@ -57,6 +58,7 @@ def handle_failure(job_id: str, payload: dict, stream: str, error: Exception):
     else:
         mark_job_status(job_id, STATUS_FAILED)
         clear_retry_count(job_id)
+        send_to_dlq(job_id, payload, reason=str(error))
         logging.error(f"Job {job_id} reached max retries. Marked as failed.")
 
 

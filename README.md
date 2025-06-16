@@ -156,7 +156,7 @@ disqueue/
 
   curl -X POST http://localhost:8000/jobs/ \
       -H "Content-Type: application/json" \
-      -d '{"payload": {"msg": "medium"}, "priority": "medium"}'
+      -d '{"payload": {"msg": "medium"}, "priority": "low"}'
   ```
 
  Response:
