@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     max_retries: int = 3
     default_priority: str = "medium"
     job_last_ids_hash: str = "job_last_ids"
+    job_dlq_stream: str = "job:dlq"
 
     model_config = SettingsConfigDict(
         env_file=".env",

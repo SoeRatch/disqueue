@@ -80,3 +80,17 @@ def set_last_id(stream: str, msg_id: str):
 # Should not be used in production unless we are intentionally replaying jobs.
 def clear_last_ids():
     r.delete(JOB_LAST_ID_HASH)
+
+
+
+def send_to_dlq(job_id: str, payload: dict, reason: str = "Maximum retries exceeded"):
+    try:
+        dlq_payload = {
+            "job_id": job_id,
+            "payload": json.dumps(payload),
+            "reason": reason,
+        }
+        r.xadd(settings.job_dlq_stream, dlq_payload)
+        logging.info(f"Job {job_id} moved to DLQ: {reason}")
+    except Exception as e:
+        logging.error(f"Failed to add job {job_id} to DLQ: {e}")
