@@ -1,6 +1,6 @@
 # Disqueue
 
-**Disqueue** is a minimal, lightweight distributed job queue system inspired by Celery and BullMQ, built using FastAPI, Redis Streams, and Docker. It allows you to queue background jobs, track their status, and retry on failure — all while keeping things simple and easy to reason about.
+**Disqueue** is a minimal, lightweight distributed job queue system inspired by Celery and BullMQ. Built with FastAPI, Redis Streams, and Docker, it supports job prioritization, retries, cancellation, and a dead-letter queue — all while staying simple and easy to reason about.
 
 ---
 ## Table of Contents
@@ -64,7 +64,9 @@
 ## Components
 
 ### `api/` – FastAPI Service
-- POST `/jobs/` to submit a job with payload and priority.
+- POST `/jobs/` – Submit a job with payload and priority.
+- GET `/jobs/{job_id}` – Retrieve the status of a specific job.
+- POST `/jobs/{job_id}/cancel` – Cancel a job if it's still queued or retrying.
   
 ### `worker/worker.py` – Worker Process
 - Continuously reads from Redis Streams (`XREAD`).
