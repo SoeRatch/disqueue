@@ -245,7 +245,7 @@ We’ve completed Phase 1. Here’s a roadmap for the upcoming development pha
 ### Phase 2 (In Progress – Stable Core Features)
 - ✅ **Job Prioritization** – High, medium, and low priority queues (Completed)
 - **Job Cancellation Support** – Ability to cancel in-progress or queued jobs
-- **Dead-letter Queue (DLQ)** – Handle jobs that fail repeatedly
+- ✅ **Dead-letter Queue (DLQ)** – Handle jobs that fail repeatedly
 - **Exponential Backoff Retries** – Gradually increase retry intervals to reduce pressure
 - **Idempotency & Deduplication** – Prevent duplicate job processing
 - **Graceful Shutdown** – Cleanly stop workers on termination signals
