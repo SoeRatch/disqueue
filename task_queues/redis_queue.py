@@ -13,7 +13,10 @@ JOB_RETRY_HASH = settings.job_retry_hash
 MAX_RETRIES = settings.max_retries
 
 JOB_LAST_ID_HASH = settings.job_last_ids_hash
-STATUS_CANCELLED = "cancelled"
+from config.status_codes import (
+    STATUS_QUEUED,
+    STATUS_CANCELLED
+)
 
 
 import logging
@@ -32,7 +35,7 @@ def enqueue_job(job_id: str, payload: dict, priority: str = settings.default_pri
             })
 
         # hset sets field in hash. hashes are efficient for storing per-job metadata (like status)
-        r.hset(JOB_STATUS_HASH, job_id, "queued")
+        r.hset(JOB_STATUS_HASH, job_id, STATUS_QUEUED)
 
         # Initialize retry count
         r.hset(JOB_RETRY_HASH, job_id, 0)

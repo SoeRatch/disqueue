@@ -15,11 +15,13 @@ import logging
 from config.logging_config import configure_logging
 configure_logging()
 
-STATUS_IN_PROGRESS = "in_progress"
-STATUS_COMPLETED = "completed"
-STATUS_RETRYING = "retrying"
-STATUS_FAILED = "failed"
-STATUS_CANCELLED = "cancelled"
+from config.status_codes import (
+    STATUS_IN_PROGRESS,
+    STATUS_COMPLETED,
+    STATUS_RETRYING,
+    STATUS_FAILED,
+    STATUS_CANCELLED
+)
 
 priority_streams = [
     settings.job_stream_high,

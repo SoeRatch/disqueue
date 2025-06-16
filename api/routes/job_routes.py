@@ -3,8 +3,13 @@
 from fastapi import APIRouter, HTTPException
 from uuid import uuid4
 from task_queues.redis_queue import (
-    enqueue_job, get_job_status, cancel_job,
-    STATUS_CANCELLED
+    enqueue_job, get_job_status, cancel_job
+)
+from config.status_codes import (
+    STATUS_CANCELLED,
+    STATUS_COMPLETED,
+    STATUS_FAILED,
+    STATUS_IN_PROGRESS,
 )
 from api.models import JobRequest, JobResponse
 
@@ -32,7 +37,7 @@ def cancel_job_handler(job_id: str):
     if current_status is None:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    if current_status in ["completed", "failed", "in_progress"]:
+    if current_status in {STATUS_COMPLETED, STATUS_FAILED, STATUS_IN_PROGRESS}:
         raise HTTPException(
             status_code=400,
             detail="Cannot cancel a job that is already completed, failed, or in progress."
