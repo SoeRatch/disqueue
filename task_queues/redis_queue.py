@@ -13,6 +13,7 @@ JOB_RETRY_HASH = settings.job_retry_hash
 MAX_RETRIES = settings.max_retries
 
 JOB_LAST_ID_HASH = settings.job_last_ids_hash
+STATUS_CANCELLED = "cancelled"
 
 
 import logging
@@ -94,3 +95,13 @@ def send_to_dlq(job_id: str, payload: dict, reason: str = "Maximum retries excee
         logging.info(f"Job {job_id} moved to DLQ: {reason}")
     except Exception as e:
         logging.error(f"Failed to add job {job_id} to DLQ: {e}")
+
+
+def cancel_job(job_id: str):
+    if r.hexists(JOB_STATUS_HASH, job_id):
+        r.hset(JOB_STATUS_HASH, job_id, STATUS_CANCELLED)
+        logging.info(f"Job {job_id} has been cancelled.")
+        return True
+    else:
+        logging.warning(f"Cancel failed: Job {job_id} not found.")
+        return False
