@@ -18,6 +18,7 @@
   - [Check Job Status](#2-check-job-status)  
   - [Simulate a Failing Job](#3-simulate-a-failing-job)  
 - [Retry Mechanism](#retry-mechanism)  
+- [Dead-letter Queue (DLQ)](#dead-letter-queue-dlq)
 - [Configuration](#configuration)  
 - [What’s Next](#whats-next) 
 - [Technologies Used](#technologies-used)  
@@ -32,8 +33,10 @@
 - **Status Tracking**: Monitor job states like `queued`, `in_progress`, `retrying`, `completed`, and `failed`.
 - **Redis Integration**: Uses Redis Streams and Hashes for job management.
 - **Retry Mechanism**: Automatic retries for failed jobs up to a configurable maximum.
-- **Priority Handling**: Supports `high`, `medium`, and `low` priority job queues.
 - **Dockerized**: Easily reproducible local development environment.
+- **Priority Handling**: Supports `high`, `medium`, and `low` priority job queues.
+- **Dead-letter Queue (DLQ)**: Automatically moves jobs to a DLQ after exceeding retry limit for later inspection or manual retry.
+
 
 ---
 
@@ -51,7 +54,7 @@
 - Jobs are added to Redis Streams based on their priority level.
 - Job metadata like status, retry count, and last stream ID is stored in Redis Hashes.
 - Worker continuously reads from streams in strict priority order.
-- Failed jobs are retried up to a max retry limit.
+- Failed jobs are retried up to a max retry limit and then moved to a Dead-letter Queue (DLQ).
 - FastAPI provides endpoints to submit and query jobs.
 
 ---
@@ -71,6 +74,7 @@
   - Enqueueing
   - Tracking job status and retries
   - Managing stream offsets
+  - Sending failed jobs to DLQ
 
 ---
 
@@ -202,6 +206,25 @@ The system will retry the job up to the `MAX_RETRIES` limit.
 - Retries are capped at a configurable `MAX_RETRIES` (default: 3).
 - Once retries are exhausted, the job is marked as `failed`.
 
+---
+
+
+
+## Dead-letter Queue (DLQ)
+
+Jobs that exceed the maximum retry limit are automatically moved to a **Dead-letter Queue** (`job:dlq`) for post-mortem analysis.
+
+Each DLQ message includes:
+- `job_id`: Original job ID
+- `payload`: Original job payload
+- `reason`: Reason for failure (e.g., exception message)
+
+You can inspect the DLQ via Redis CLI:
+
+```bash
+# In Redis CLI (local)
+127.0.0.1:6379> XRANGE job:dlq - +
+```
 ---
 
 ## Configuration
