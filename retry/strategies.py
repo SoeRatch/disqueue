@@ -5,7 +5,7 @@ import time
 
 class RetryStrategy(abc.ABC):
     @abc.abstractmethod
-    def should_retry(self, job_id: str, retries: int) -> bool:
+    def should_retry(self, retries: int) -> bool:
         pass
 
     @abc.abstractmethod
@@ -18,7 +18,7 @@ class FixedRetryStrategy(RetryStrategy):
         self.max_retries = max_retries
         self.delay = delay
 
-    def should_retry(self, job_id: str, retries: int) -> bool:
+    def should_retry(self, retries: int) -> bool:
         return retries < self.max_retries
 
     def get_delay(self, retries: int) -> float:
@@ -31,7 +31,7 @@ class ExponentialBackoffStrategy(RetryStrategy):
         self.base_delay = base_delay
         self.factor = factor
 
-    def should_retry(self, job_id: str, retries: int) -> bool:
+    def should_retry(self, retries: int) -> bool:
         return retries < self.max_retries
 
     def get_delay(self, retries: int) -> float:
