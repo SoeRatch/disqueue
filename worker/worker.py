@@ -5,7 +5,6 @@ import time
 from task_queues.redis_queue import (
     r,get_job_status, mark_job_status,
     increment_retry_count, clear_retry_count,
-    MAX_RETRIES,
     get_last_id, set_last_id,
     send_to_dlq
 )
@@ -57,7 +56,7 @@ def handle_failure(job_id: str, payload: dict, stream: str, error: Exception):
     logging.warning(f"Job - {job_id} failed: {error}")
     retries = increment_retry_count(job_id)
 
-    if retries < MAX_RETRIES:
+    if retry_strategy.should_retry(retries):
         mark_job_status(job_id, STATUS_RETRYING)
 
         delay = retry_strategy.get_delay(retries)
