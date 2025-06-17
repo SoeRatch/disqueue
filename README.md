@@ -223,8 +223,12 @@ Response:
 ## Retry Mechanism
 
 - If a job fails (e.g., the payload contains `"fail": true`), the system retries it.
-- Retries are capped at a configurable `MAX_RETRIES` (default: 3).
-- Once retries are exhausted, the job is marked as `failed`.
+- Retries are capped at a configurable `max_retries` (default: 3).
+- You can choose between two retry strategies:
+  - **fixed**: Retry after a constant delay (e.g., 1 second).
+  - **exponential**: Retry after increasing delays (e.g., 1s → 2s → 4s → 8s).
+- The strategy and delays are configured in the `.env` file.
+- Once retries are exhausted, the job is moved to the **Dead-letter Queue** (`job:dlq`).
 
 ---
 
@@ -246,38 +250,23 @@ You can inspect the DLQ via Redis CLI:
 127.0.0.1:6379> XRANGE job:dlq - +
 ```
 ---
-
 ## Configuration
 
-Environment configuration is managed through `.env` and `config/settings.py`.
+All environment-specific settings are defined in `.env` and loaded through a centralized configuration module (`config/settings.py`). This includes Redis connections, retry strategies, stream names, and default priorities.
 
-`.env`:
+### How It Works
 
-```
+- Configuration is injected via `.env` or environment variables.
+- Values are parsed using Pydantic settings classes.
+- This setup ensures easy overrides in development, testing, or production environments.
+- The config layer is designed to evolve — for example, switching to database-driven or remote config management later.
+
+### Example `.env`
+
+```env
 REDIS_URL=redis://redis:6379
 API_PORT=8000
-```
-
-`config/settings.py`:
-
-```python
-from pydantic_settings import BaseSettings
-
-class Settings(BaseSettings):
-    REDIS_URL: str = "redis://localhost:6379/0"
-    job_stream_high: str = "job_stream_high"
-    job_stream_medium: str = "job_stream_medium"
-    job_stream_low: str = "job_stream_low"
-    job_status_hash: str = "job_status"
-    job_retry_hash: str = "job_retries"
-    max_retries: int = 3
-    default_priority: str = "medium"
-    job_last_ids_hash: str = "job_last_ids"
-
-    class Config:
-        env_file = ".env"
-
-settings = Settings()
+RETRY_STRATEGY=exponential       # or "fixed"
 ```
 ---
 
@@ -289,7 +278,7 @@ We’ve completed Phase 1. Here’s a roadmap for the upcoming development pha
 - ✅ **Job Prioritization** – High, medium, and low priority queues (Completed)
 - ✅ **Job Cancellation Support** – Ability to cancel in-progress or queued jobs
 - ✅ **Dead-letter Queue (DLQ)** – Handle jobs that fail repeatedly
-- **Exponential Backoff Retries** – Gradually increase retry intervals to reduce pressure
+- ✅ **Exponential Backoff Retries** – Gradually increase retry intervals to reduce pressure
 - **Idempotency & Deduplication** – Prevent duplicate job processing
 - **Graceful Shutdown** – Cleanly stop workers on termination signals
 - **Support for Multiple Queues** – Handle independent job streams

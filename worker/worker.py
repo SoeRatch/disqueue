@@ -15,6 +15,9 @@ import logging
 from config.logging_config import configure_logging
 configure_logging()
 
+from retry.factory import get_retry_strategy
+retry_strategy = get_retry_strategy()
+
 from config.status_codes import (
     STATUS_IN_PROGRESS,
     STATUS_COMPLETED,
@@ -56,8 +59,13 @@ def handle_failure(job_id: str, payload: dict, stream: str, error: Exception):
 
     if retries < MAX_RETRIES:
         mark_job_status(job_id, STATUS_RETRYING)
+
+        delay = retry_strategy.get_delay(retries)
+        if delay > 0:
+            time.sleep(delay)
+
         r.xadd(stream, {"job_id": job_id, "payload": json.dumps(payload)})
-        logging.info(f"Retrying job {job_id}, attempt - {retries}")
+        logging.info(f"Retrying job {job_id}, attempt - {retries} with delay - {delay} seconds")
     else:
         mark_job_status(job_id, STATUS_FAILED)
         clear_retry_count(job_id)
