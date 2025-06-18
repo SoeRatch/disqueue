@@ -24,7 +24,10 @@ def deduplicated(ttl_seconds: int = 3600):
                 r.set(dedup_key, "done", ex=86400)  # Keep for 1 day
                 return result
             except Exception:
-                r.delete(dedup_key)  # Remove so retry can happen
+                logging.exception(f"[Deduplication] Error processing job {job_id}")
                 raise
         return wrapper
     return decorator
+
+def dedup_key(job_id: str) -> str:
+    return f"dedup:{job_id}"
