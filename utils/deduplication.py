@@ -4,11 +4,10 @@ import logging
 from functools import wraps
 from task_queues.redis_queue import r
 
-def deduplicated(job_id_key: str = "job_id", ttl_seconds: int = 3600):
+def deduplicated(ttl_seconds: int = 3600):
     def decorator(func):
         @wraps(func)
-        def wrapper(payload: dict, *args, **kwargs):
-            job_id = payload.get(job_id_key)
+        def wrapper(job_id: str, payload: dict, *args, **kwargs):
             if not job_id:
                 logging.error("Missing job_id in payload.")
                 raise ValueError("Missing job_id in payload.")
@@ -21,7 +20,7 @@ def deduplicated(job_id_key: str = "job_id", ttl_seconds: int = 3600):
                 return "duplicate"
 
             try:
-                result = func(payload, *args, **kwargs)
+                result = func(job_id, payload, *args, **kwargs)
                 r.set(dedup_key, "done", ex=86400)  # Keep for 1 day
                 return result
             except Exception:
