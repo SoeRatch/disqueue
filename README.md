@@ -1,6 +1,6 @@
 # Disqueue
 
-**Disqueue** is a minimal, lightweight distributed job queue system inspired by Celery and BullMQ. Built with FastAPI, Redis Streams, and Docker, it supports job prioritization, retries, cancellation, and a dead-letter queue — all while staying simple and easy to reason about.
+**Disqueue** is a minimal, lightweight distributed job queue system inspired by Celery and BullMQ. Built with FastAPI, Redis Streams, and Docker, it supports job prioritization, retries, cancellation, dead-letter queue and Redis-powered idempotency and deduplication — all while staying simple and easy to reason about.
 
 ---
 ## Table of Contents
@@ -19,6 +19,7 @@
   - [Simulate a Failing Job](#3-simulate-a-failing-job)  
 - [Retry Mechanism](#retry-mechanism)  
 - [Dead-letter Queue (DLQ)](#dead-letter-queue-dlq)
+- [Idempotency & Deduplication](#idempotency--deduplication)
 - [Configuration](#configuration)  
 - [What’s Next](#whats-next) 
 - [Technologies Used](#technologies-used)  
@@ -37,6 +38,7 @@
 - **Priority Handling**: Supports `high`, `medium`, and `low` priority job queues.
 - **Dead-letter Queue (DLQ)**: Automatically moves jobs to a DLQ after exceeding retry limit for later inspection or manual retry.
 - **Job Cancellation**: Cancel jobs before they are processed by a worker.
+- **Idempotency & Deduplication**: Redis-powered lock mechanism ensures a job is never processed by more than one worker simultaneously.
 
 
 ---
@@ -55,6 +57,7 @@
 - Jobs are added to Redis Streams based on their priority level.
 - Job metadata like status, retry count, and last stream ID is stored in Redis Hashes.
 - Worker continuously reads from streams in strict priority order.
+- Deduplication logic ensures only one worker processes a job at a time.
 - Failed jobs are retried up to a max retry limit and then moved to a Dead-letter Queue (DLQ).
 - FastAPI provides endpoints to submit and query jobs.
 - Cancelled jobs are marked with cancelled status and skipped by workers, while maintaining stream offsets to avoid reprocessing.
@@ -73,6 +76,12 @@
 - Enforces priority: high → medium → low .
 - Persists `last_id` per stream to avoid duplication.
 - Skips jobs marked as cancelled and safely moves past them by updating the stream offset.
+- Applies a deduplication decorator to ensure that only one worker processes a given job at a time.
+
+### `utils/deduplication.py`
+- Provides a reusable `@deduplicated()` decorator that wraps job processing in a Redis `SET NX` lock.
+- Ensures only the first worker to acquire the lock executes the job.
+- Automatically releases the lock on failure or marks it `done` on success.
 
 ### `task_queues/redis_queue.py`
 - Redis utility functions for:
@@ -94,6 +103,8 @@ disqueue/
 │   └── settings.py      # Configuration settings
 ├── task_queues/
 │   └── redis_queue.py   # Redis interaction logic
+├── utils/
+│   └── deduplication.py # Idempotency and deduplication logic
 ├── worker/
 │   └── worker.py        # Worker process to handle jobs
 ├── Dockerfile.api       # Dockerfile for API service
@@ -162,7 +173,8 @@ disqueue/
   curl -X POST http://localhost:8000/jobs/ \
       -H "Content-Type: application/json" \
       -d '{"payload": {"msg": "urgent"}, "priority": "high"}'
-
+  ```
+  ```bash
   curl -X POST http://localhost:8000/jobs/ \
       -H "Content-Type: application/json" \
       -d '{"payload": {"msg": "medium"}, "priority": "low"}'
@@ -224,11 +236,11 @@ Response:
 
 - If a job fails (e.g., the payload contains `"fail": true`), the system retries it.
 - Retries are capped at a configurable `max_retries` (default: 3).
-- You can choose between two retry strategies:
+- Two retry strategies are supported:
   - **fixed**: Retry after a constant delay (e.g., 1 second).
   - **exponential**: Retry after increasing delays (e.g., 1s → 2s → 4s → 8s).
 - The strategy and delays are configured in the `.env` file.
-- Once retries are exhausted, the job is moved to the **Dead-letter Queue** (`job:dlq`).
+- Once retries are exhausted, the job is moved to the **Dead-letter Queue**.
 
 ---
 
@@ -236,7 +248,7 @@ Response:
 
 ## Dead-letter Queue (DLQ)
 
-Jobs that exceed the maximum retry limit are automatically moved to a **Dead-letter Queue** (`job:dlq`) for post-mortem analysis.
+Jobs that exceed the maximum retry limit are moved to a Redis Stream called `job:dlq` for post-mortem analysis.
 
 Each DLQ message includes:
 - `job_id`: Original job ID
@@ -250,6 +262,39 @@ You can inspect the DLQ via Redis CLI:
 127.0.0.1:6379> XRANGE job:dlq - +
 ```
 ---
+
+## Idempotency & Deduplication
+
+In distributed queue systems, it’s common for the same job to be picked up more than once — either due to retries, network glitches, or multiple workers competing. Disqueue avoids this using a Redis-based locking mechanism via a reusable decorator.
+
+The core logic is defined in `utils/deduplication.py` and applied to the job processor in `worker/worker.py`:
+
+```python
+# worker/worker.py
+
+@deduplicated()
+def safe_process(job_id, payload):
+    logging.info(f"Processing job {job_id}")
+    time.sleep(10)  # Simulated long task
+    if payload.get("fail"):
+        raise Exception("Simulated failure")
+```
+
+### How it works
+- When a job is picked up, a Redis key `dedup:{job_id}` is set using `SET NX`, acting as a lock.
+- If the key already exists, the job is considered already in progress or processed — so it’s skipped.
+- On successful execution, the lock is converted to a `done` marker with a 24-hour TTL.
+- If the job fails, the lock is explicitly removed to allow retries.
+
+This ensures:
+- ✅ **Safe concurrency**: In multi-worker environments, only one worker ever processes a job.
+- ✅ **Retry resilience**: Failures release the lock so the job can be retried cleanly.
+- ✅ **Single-worker compatibility**: Even if you have just one worker, the system behaves correctly with no risk of deadlock or side effects. It also helps in fast pre-checks before doing heavy work.
+
+
+
+---
+
 ## Configuration
 
 All environment-specific settings are defined in `.env` and loaded through a centralized configuration module (`config/settings.py`). This includes Redis connections, retry strategies, stream names, and default priorities.
@@ -279,7 +324,7 @@ We’ve completed Phase 1. Here’s a roadmap for the upcoming development pha
 - ✅ **Job Cancellation Support** – Ability to cancel in-progress or queued jobs
 - ✅ **Dead-letter Queue (DLQ)** – Handle jobs that fail repeatedly
 - ✅ **Exponential Backoff Retries** – Gradually increase retry intervals to reduce pressure
-- **Idempotency & Deduplication** – Prevent duplicate job processing
+- ✅ **Idempotency & Deduplication** – Prevent duplicate job processing
 - **Graceful Shutdown** – Cleanly stop workers on termination signals
 - **Support for Multiple Queues** – Handle independent job streams
 - **Basic Dashboard** – CLI or minimal web UI to view jobs and statuses
