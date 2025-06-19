@@ -9,14 +9,10 @@ from task_queues.redis_queue import (
     send_to_dlq
 )
 from config.settings import settings
-
 import logging
 from config.logging_config import configure_logging
-configure_logging()
-
 from retry.factory import get_retry_strategy
-retry_strategy = get_retry_strategy()
-
+from utils.deduplication import deduplicated,dedup_key
 from config.status_codes import (
     STATUS_IN_PROGRESS,
     STATUS_COMPLETED,
@@ -25,11 +21,15 @@ from config.status_codes import (
     STATUS_CANCELLED
 )
 
+configure_logging()
+
 priority_streams = [
     settings.job_stream_high,
     settings.job_stream_medium,
     settings.job_stream_low
 ]
+
+retry_strategy = get_retry_strategy()
 
 
 # Get last_ids of all priority streams
@@ -39,8 +39,10 @@ last_ids = {
 }
 
 
-def process(payload: dict):
-    logging.info(f"Processing: {payload}")
+
+@deduplicated()
+def safe_process(job_id: str, payload: dict):
+    logging.info(f"Processing: {job_id} -> {payload}")
     time.sleep(10)
     if payload.get("fail"):
         raise Exception("Simulated failure")
@@ -64,11 +66,16 @@ def handle_failure(job_id: str, payload: dict, stream: str, error: Exception):
             time.sleep(delay)
 
         r.xadd(stream, {"job_id": job_id, "payload": json.dumps(payload)})
+
+        # release deduplication lock so other workers can pick it up if the current is busy.
+        r.delete(dedup_key(job_id))
         logging.info(f"Retrying job {job_id}, attempt - {retries} with delay - {delay} seconds")
     else:
         mark_job_status(job_id, STATUS_FAILED)
         clear_retry_count(job_id)
         send_to_dlq(job_id, payload, reason=str(error))
+        # Still delete dedup lock to allow recovery after manual intervention
+        r.delete(dedup_key(job_id))
         logging.error(f"Job {job_id} reached max retries. Marked as failed.")
 
 
@@ -110,7 +117,13 @@ def start_worker():
                     mark_job_status(job_id, STATUS_IN_PROGRESS)
                 
                 try:
-                    process(payload)
+                    result = safe_process(job_id,payload)
+                    if result == "duplicate":
+                        # Mark last_id to avoid re-processing
+                        last_ids[stream] = msg_id
+                        set_last_id(stream, msg_id)
+                        job_found = True
+                        continue
                     handle_success(job_id)
                 except Exception as e:
                     handle_failure(job_id, payload,stream, e)
