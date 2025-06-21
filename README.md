@@ -61,6 +61,7 @@
 - Failed jobs are retried up to a max retry limit and then moved to a Dead-letter Queue (DLQ).
 - FastAPI provides endpoints to submit and query jobs.
 - Cancelled jobs are marked with cancelled status and skipped by workers, while maintaining stream offsets to avoid reprocessing.
+- The worker is composed of a StreamManager for handling Redis stream offsets and polling, and a JobProcessor for managing job execution, retries, deduplication, and DLQ handling.
 
 ---
 
@@ -70,13 +71,26 @@
 - POST `/jobs/` – Submit a job with payload and priority.
 - GET `/jobs/{job_id}` – Retrieve the status of a specific job.
 - POST `/jobs/{job_id}/cancel` – Cancel a job if it's still queued or retrying.
-  
-### `worker/worker.py` – Worker Process
-- Continuously reads from Redis Streams (`XREAD`).
-- Enforces priority: high → medium → low .
-- Persists `last_id` per stream to avoid duplication.
-- Skips jobs marked as cancelled and safely moves past them by updating the stream offset.
-- Applies a deduplication decorator to ensure that only one worker processes a given job at a time.
+
+### `worker/worker.py` – Worker Orchestrator
+- Continuously polls Redis Streams (`XREAD`) in strict priority order.
+- Delegates job execution to `JobProcessor`.
+- Uses `StreamManager` to manage stream offsets and fetch jobs.
+- Skips cancelled jobs and advances the stream pointer to avoid reprocessing.
+
+### `streams/manager.py` – Stream Manager
+- Manages stream offsets (`last_id`) for each priority stream.
+- Handles reading jobs using `XREAD` from Redis.
+- Ensures each message is read and acknowledged only once.
+- Cleanly decouples stream reading from job processing.
+
+### `jobs/processor.py` – Job Processor
+- Executes jobs with:
+  - Redis-based deduplication lock.
+  - Retry strategy (fixed or exponential).
+  - Status tracking (`in_progress`, `completed`, etc.).
+  - DLQ handoff after exhausting retries.
+- Isolates the business logic from stream reading and orchestration.
 
 ### `utils/deduplication.py`
 - Provides a reusable `@deduplicated()` decorator that wraps job processing in a Redis `SET NX` lock.
@@ -107,6 +121,10 @@ disqueue/
 │   └── deduplication.py # Idempotency and deduplication logic
 ├── worker/
 │   └── worker.py        # Worker process to handle jobs
+├── streams/
+│   └── manager.py        # Stream reading and offset tracking
+├── jobs/
+│   └── processor.py      # Core job execution logic
 ├── Dockerfile.api       # Dockerfile for API service
 ├── Dockerfile.worker    # Dockerfile for Worker service
 ├── docker-compose.yml   # Docker Compose configuration
