@@ -3,6 +3,9 @@
 import json
 import time
 import logging
+import signal
+import threading
+
 from task_queues.redis_queue import (
    get_job_status
 )
@@ -27,11 +30,21 @@ retry_strategy = get_retry_strategy()
 processor = JobProcessor(retry_strategy)
 stream_manager = StreamManager(priority_streams)
 
+# Thread-safe event flag for shutdown
+shutdown_event = threading.Event()
+
+def handle_shutdown_signal(signum, frame):
+    logging.info(f"\nReceived shutdown signal ({signum}). Finishing current job then exiting...")
+    shutdown_event.set()
+
+# Register signal handlers
+signal.signal(signal.SIGINT, handle_shutdown_signal)
+signal.signal(signal.SIGTERM, handle_shutdown_signal)
 
 def start_worker():
     logging.info("Worker started...")
 
-    while True:
+    while not shutdown_event.is_set():
         try:
 
             result = stream_manager.get_next_job()
@@ -47,7 +60,6 @@ def start_worker():
             logging.info(f"\nReceived job {job_id} from {stream}")
 
             current_status = get_job_status(job_id)
-
             if current_status == STATUS_CANCELLED:
                 logging.info(f"Job {job_id} is cancelled. Skipping.")
                 stream_manager.mark_processed(stream, msg_id)
@@ -61,6 +73,8 @@ def start_worker():
         except Exception as e:
             logging.error("Worker error:", e)
             time.sleep(1)
+            
+    logging.info("Graceful shutdown complete. Worker exiting.")
 
 if __name__ == "__main__":
     start_worker()
