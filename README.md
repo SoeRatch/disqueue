@@ -39,6 +39,7 @@
 - **Dead-letter Queue (DLQ)**: Automatically moves jobs to a DLQ after exceeding retry limit for later inspection or manual retry.
 - **Job Cancellation**: Cancel jobs before they are processed by a worker.
 - **Idempotency & Deduplication**: Redis-powered lock mechanism ensures a job is never processed by more than one worker simultaneously.
+- **Graceful Shutdown**: Worker completes the current job before exiting on termination signals (SIGINT/SIGTERM).
 
 
 ---
@@ -49,6 +50,8 @@
 - **Redis Streams** – Priority queues
 - **Python** – Worker logic and APIs
 - **Docker & Docker Compose** – Containerization
+- **Pydantic** – Configuration parsing via `.env`
+
 
 ---
 
@@ -58,10 +61,13 @@
 - Job metadata like status, retry count, and last stream ID is stored in Redis Hashes.
 - Worker continuously reads from streams in strict priority order.
 - Deduplication logic ensures only one worker processes a job at a time.
+- FastAPI provides endpoints for job submission, status checks, and cancellation.
 - Failed jobs are retried up to a max retry limit and then moved to a Dead-letter Queue (DLQ).
 - FastAPI provides endpoints to submit and query jobs.
-- Cancelled jobs are marked with cancelled status and skipped by workers, while maintaining stream offsets to avoid reprocessing.
-- The worker is composed of a StreamManager for handling Redis stream offsets and polling, and a JobProcessor for managing job execution, retries, deduplication, and DLQ handling.
+- Cancelled jobs are skipped but acknowledged to maintain stream offsets to avoid reprocessing.
+- Worker logic is modularized via a StreamManager (stream polling) and JobProcessor (execution, retries, DLQ, deduplication).
+- Workers support **graceful shutdown**, completing the in-progress job before exiting.
+
 
 ---
 
@@ -77,6 +83,7 @@
 - Delegates job execution to `JobProcessor`.
 - Uses `StreamManager` to manage stream offsets and fetch jobs.
 - Skips cancelled jobs and advances the stream pointer to avoid reprocessing.
+- Supports **graceful shutdown** using signal handlers (SIGINT/SIGTERM). When stopped, the worker finishes the current job cleanly before exiting.
 
 ### `streams/manager.py` – Stream Manager
 - Manages stream offsets (`last_id`) for each priority stream.
@@ -178,6 +185,15 @@ disqueue/
     - `api` at [http://localhost:8000](http://localhost:8000)
     - `worker` (background processor)
     - `redis` (stream/message broker)
+  
+4. **(Optional) Extend Worker Shutdown Timeout**:
+    To prevent Docker from force-killing the worker while it’s processing a job, you can extend the shutdown grace period in `docker-compose.yml`:
+
+    ```yaml
+    services:
+      worker:
+        stop_grace_period: 90s
+    ```
 
 ---
 
@@ -338,12 +354,12 @@ RETRY_STRATEGY=exponential       # or "fixed"
 We’ve completed Phase 1. Here’s a roadmap for the upcoming development phases:
 
 ### Phase 2 (In Progress – Stable Core Features)
-- ✅ **Job Prioritization** – High, medium, and low priority queues (Completed)
+- ✅ **Job Prioritization** – High, medium, and low priority queues
 - ✅ **Job Cancellation Support** – Ability to cancel in-progress or queued jobs
 - ✅ **Dead-letter Queue (DLQ)** – Handle jobs that fail repeatedly
 - ✅ **Exponential Backoff Retries** – Gradually increase retry intervals to reduce pressure
 - ✅ **Idempotency & Deduplication** – Prevent duplicate job processing
-- **Graceful Shutdown** – Cleanly stop workers on termination signals
+- ✅ **Graceful Shutdown** – Cleanly stop workers on termination signals
 - **Support for Multiple Queues** – Handle independent job streams
 - **Basic Dashboard** – CLI or minimal web UI to view jobs and statuses
 
