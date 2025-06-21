@@ -2,24 +2,17 @@
 
 import json
 import time
-from task_queues.redis_queue import (
-    r,get_job_status, mark_job_status,
-    increment_retry_count, clear_retry_count,
-    get_last_id, set_last_id,
-    send_to_dlq
-)
-from config.settings import settings
 import logging
-from config.logging_config import configure_logging
-from retry.factory import get_retry_strategy
-from utils.deduplication import deduplicated,dedup_key
+from task_queues.redis_queue import (
+    r, get_job_status, get_last_id, set_last_id
+)
 from config.status_codes import (
-    STATUS_IN_PROGRESS,
-    STATUS_COMPLETED,
-    STATUS_RETRYING,
-    STATUS_FAILED,
     STATUS_CANCELLED
 )
+from config.settings import settings
+from config.logging_config import configure_logging
+from retry.factory import get_retry_strategy
+from jobs.processor import JobProcessor
 
 configure_logging()
 
@@ -38,45 +31,7 @@ last_ids = {
     for stream in priority_streams
 }
 
-
-
-@deduplicated()
-def safe_process(job_id: str, payload: dict):
-    logging.info(f"Processing: {job_id} -> {payload}")
-    time.sleep(10)
-    if payload.get("fail"):
-        raise Exception("Simulated failure")
-
-
-def handle_success(job_id: str):
-    mark_job_status(job_id, STATUS_COMPLETED)
-    clear_retry_count(job_id)
-    logging.info(f"Job {job_id} completed successfully.")
-
-
-def handle_failure(job_id: str, payload: dict, stream: str, error: Exception):
-    logging.warning(f"Job - {job_id} failed: {error}")
-    retries = increment_retry_count(job_id)
-
-    if retry_strategy.should_retry(retries):
-        mark_job_status(job_id, STATUS_RETRYING)
-
-        delay = retry_strategy.get_delay(retries)
-        if delay > 0:
-            time.sleep(delay)
-
-        r.xadd(stream, {"job_id": job_id, "payload": json.dumps(payload)})
-
-        # release deduplication lock so other workers can pick it up if the current is busy.
-        r.delete(dedup_key(job_id))
-        logging.info(f"Retrying job {job_id}, attempt - {retries} with delay - {delay} seconds")
-    else:
-        mark_job_status(job_id, STATUS_FAILED)
-        clear_retry_count(job_id)
-        send_to_dlq(job_id, payload, reason=str(error))
-        # Still delete dedup lock to allow recovery after manual intervention
-        r.delete(dedup_key(job_id))
-        logging.error(f"Job {job_id} reached max retries. Marked as failed.")
+processor = JobProcessor(retry_strategy)
 
 
 def start_worker():
@@ -113,29 +68,15 @@ def start_worker():
                     job_found = True
                     continue  # Skip this job
                 
-                if current_status != STATUS_RETRYING:
-                    mark_job_status(job_id, STATUS_IN_PROGRESS)
-                
-                try:
-                    result = safe_process(job_id,payload)
-                    if result == "duplicate":
-                        # Mark last_id to avoid re-processing
-                        last_ids[stream] = msg_id
-                        set_last_id(stream, msg_id)
-                        job_found = True
-                        continue
-                    handle_success(job_id)
-                except Exception as e:
-                    handle_failure(job_id, payload,stream, e)
-                
-                # Persist the new last_id for this stream
+                result = processor.execute(job_id, payload, stream)
+
+                # Regardless of success/failure/duplicate, we mark the message as handled
                 last_ids[stream] = msg_id
                 set_last_id(stream, msg_id)
 
-                job_found = True
+                job_found = True 
 
-                # Break after processing one job to re-check highest priority stream again
-                break
+                break # Break after processing one job to re-check highest priority stream again
                 
             if not job_found:
                 time.sleep(0.1)  # small cooldown to avoid CPU spin
