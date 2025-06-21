@@ -14,14 +14,14 @@ from config.status_codes import (
     STATUS_RETRYING,
     STATUS_FAILED
 )
-from utils.deduplication import deduplicated, dedup_key
+from utils.deduplication import deduplicated, get_dedup_key
 
 
 class JobProcessor:
     def __init__(self, retry_strategy):
         self.retry_strategy = retry_strategy
 
-    @deduplicated()
+    @deduplicated(on_first_attempt=lambda job_id: mark_job_status(job_id, STATUS_IN_PROGRESS))
     def safe_process(self, job_id: str, payload: dict):
         logging.info(f"Processing: {job_id} -> {payload}")
         time.sleep(10)
@@ -30,7 +30,6 @@ class JobProcessor:
 
     def execute(self, job_id: str, payload: dict, stream: str) -> str:
         try:
-            mark_job_status(job_id, STATUS_IN_PROGRESS)
             result = self.safe_process(job_id, payload)
             if result == "duplicate":
                 return "duplicate"
@@ -57,13 +56,13 @@ class JobProcessor:
 
             r.xadd(stream, {"job_id": job_id, "payload": json.dumps(payload)})
 
-            r.delete(dedup_key(job_id))  # release deduplication lock so other workers can pick it up if the current is busy.
+            r.delete(get_dedup_key(job_id))  # release deduplication lock so other workers can pick it up if the current is busy.
             logging.info(f"Retrying job {job_id}, attempt - {retries} with delay - {delay} seconds")
             return "retrying"
         else:
             mark_job_status(job_id, STATUS_FAILED)
             clear_retry_count(job_id)
             send_to_dlq(job_id, payload, reason=str(error))
-            r.delete(dedup_key(job_id))  # cleanup
+            r.delete(get_dedup_key(job_id))  # cleanup
             logging.error(f"Job {job_id} reached max retries. Marked as failed.")
             return "failed"
