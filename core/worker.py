@@ -1,4 +1,4 @@
-# worker/worker.py
+# core/worker.py
 
 import json
 import time
