@@ -8,7 +8,7 @@ from infrastructure.redis_queue import (
     r, mark_job_status, increment_retry_count,
     clear_retry_count, send_to_dlq
 )
-from config.status_codes import (
+from core.status import (
     STATUS_IN_PROGRESS,
     STATUS_COMPLETED,
     STATUS_RETRYING,

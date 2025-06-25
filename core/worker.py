@@ -9,7 +9,7 @@ import threading
 from infrastructure.redis_queue import (
    get_job_status
 )
-from config.status_codes import (
+from core.status import (
     STATUS_CANCELLED
 )
 from config.settings import settings

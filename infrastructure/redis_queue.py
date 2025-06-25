@@ -13,7 +13,7 @@ JOB_RETRY_HASH = settings.job_retry_hash
 MAX_RETRIES = settings.max_retries
 
 JOB_LAST_ID_HASH = settings.job_last_ids_hash
-from config.status_codes import (
+from core.status import (
     STATUS_QUEUED,
     STATUS_CANCELLED
 )
