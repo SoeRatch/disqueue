@@ -16,7 +16,7 @@ from config.settings import settings
 from config.logging_config import configure_logging
 from retry.factory import get_retry_strategy
 from core.processor import JobProcessor
-from streams.manager import StreamManager
+from infrastructure.redis_stream import StreamManager
 
 configure_logging()
 
