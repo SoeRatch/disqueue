@@ -1,10 +1,10 @@
-# jobs/processor.py
+# core/processor.py
 
 import time
 import json
 import logging
 
-from task_queues.redis_queue import (
+from infrastructure.redis_queue import (
     r, mark_job_status, increment_retry_count,
     clear_retry_count, send_to_dlq
 )

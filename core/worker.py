@@ -6,7 +6,7 @@ import logging
 import signal
 import threading
 
-from task_queues.redis_queue import (
+from infrastructure.redis_queue import (
    get_job_status
 )
 from config.status_codes import (
