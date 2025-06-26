@@ -1,12 +1,14 @@
 # infrastructure/redis_stream.py
 
-from task_queues.redis_queue import r, get_last_id, set_last_id
 import logging
+from infrastructure.redis_queue import get_last_id, set_last_id
 
-class StreamManager:
-    def __init__(self, streams: list):
-        self.streams = streams
-        self.last_ids = {stream: get_last_id(stream) for stream in streams} # Get last_ids of all priority streams
+class QueueStreamManager:
+    def __init__(self, queue):
+        self.queue = queue
+        self.client = queue.client
+        self.streams = queue.streams
+        self.last_ids = {stream: get_last_id(stream) for stream in self.streams} # Get last_ids of all priority streams
 
     def get_next_job(self):
         """
@@ -18,7 +20,7 @@ class StreamManager:
                 # Read from the current priority stream using XREAD.
                 # # r.xread({stream: ID}) returns messages with IDs strictly greater than the given ID.
                 # # This ensures the same message is not processed twice.
-                res = r.xread({stream: self.last_ids[stream]}, block=1000, count=1)
+                res = self.client.xread({stream: self.last_ids[stream]}, block=1000, count=1)
                 if not res:
                     continue
                 _, messages = res[0]
