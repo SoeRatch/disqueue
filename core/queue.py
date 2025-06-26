@@ -15,7 +15,7 @@ class QueueConfig:
         self.priorities = priorities or ["default"]
         self.retry_limit = retry_limit or settings.max_retries
         self.enable_dlq = enable_dlq
-        self.stream = f"disqueue:{self.name}"
+        self.streams = [f"disqueue:{self.name}:{p}" for p in self.priorities]
 
     def __repr__(self):
         return f"QueueConfig(name={self.name}, priorities={self.priorities})"
@@ -26,13 +26,18 @@ class DisqueueQueue:
         self.config = config
         self.client = client
         self.name = config.name
-        self.stream = config.stream
+        self.streams = config.streams
 
     def enqueue(self, job_id: str, payload: dict, priority: str = "default") -> bool:
-        logging.debug(f"Enqueuing job {job_id} to stream {self.stream} with priority {priority}")
+        if priority not in self.config.priorities:
+            logging.warning(f"Unknown priority '{priority}' for queue '{self.name}'. Defaulting to 'default'.")
+            priority = "default"
+        
+        stream_name = f"disqueue:{self.name}:{priority}"
+        logging.debug(f"Enqueuing job {job_id} to stream {stream_name} with priority {priority}")
         return enqueue_job(
             client=self.client,
-            stream_name=self.stream,
+            stream_name=stream_name,
             job_id=job_id,
             payload=payload,
             priority=priority
