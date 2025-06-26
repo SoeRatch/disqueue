@@ -30,8 +30,10 @@ class DisqueueQueue:
 
     def enqueue(self, job_id: str, payload: dict, priority: str = "default") -> bool:
         if priority not in self.config.priorities:
-            logging.warning(f"Unknown priority '{priority}' for queue '{self.name}'. Defaulting to 'default'.")
-            priority = "default"
+            raise ValueError(
+                f"Priority '{priority}' not allowed in queue '{self.name}'. "
+                f"Allowed priorities: {self.config.priorities}"
+            )
         
         stream_name = f"disqueue:{self.name}:{priority}"
         logging.debug(f"Enqueuing job {job_id} to stream {stream_name} with priority {priority}")
