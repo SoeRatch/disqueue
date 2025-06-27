@@ -38,7 +38,7 @@ def start_worker():
 
     job_store = RedisJobStore(redis_client)
 
-    queues = get_registered_queues()  # returns list[DisqueueQueue]
+    queues = get_registered_queues(job_store)  # returns list[DisqueueQueue]
     logging.info(f"Registered queues: {[q.name for q in queues]}")
     stream_managers = [(q, QueueStreamManager(q,job_store)) for q in queues]
 
