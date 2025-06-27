@@ -9,7 +9,7 @@ from core.registry import get_registered_queues
 from infrastructure.redis_conn import redis_client
 from infrastructure.redis_job_store import RedisJobStore
 
-from config.status_codes import (
+from core.status import (
     STATUS_CANCELLED,
     STATUS_COMPLETED,
     STATUS_FAILED,
