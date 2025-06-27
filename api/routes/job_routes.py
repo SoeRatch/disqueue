@@ -15,7 +15,7 @@ from config.status_codes import (
 from infrastructure.redis_conn import redis_client
 from infrastructure.redis_job_store import RedisJobStore
 from config.queue_registry import REGISTERED_QUEUES
-from core.queue import DisqueueQueue
+from core.queue_config import DisqueueQueue
 
 router = APIRouter()
 

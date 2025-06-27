@@ -1,4 +1,4 @@
-# core/queue.py
+# core/queue_config.py
 
 import logging
 from config.settings import settings

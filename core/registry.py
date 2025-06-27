@@ -1,7 +1,7 @@
 # core/registry.py
 
 from config.queue_registry import REGISTERED_QUEUES
-from core.queue import DisqueueQueue
+from core.queue_config import DisqueueQueue
 from infrastructure.redis_conn import redis_client
 from infrastructure.redis_job_store import RedisJobStore
 
