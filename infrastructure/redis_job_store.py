@@ -2,6 +2,7 @@
 
 import json
 import logging
+from typing import Optional, Tuple
 
 from core.status import STATUS_QUEUED, STATUS_CANCELLED
 from config.settings import settings
@@ -39,6 +40,23 @@ class RedisJobStore:
         except Exception as e:
             logging.error(f"[enqueue_job] Error enqueueing job {job_id} to {stream_name}", exc_info=True)
             return False
+    
+    def read_from_stream(self, stream: str, last_id: str) -> Optional[Tuple[str, dict]]:
+        """
+        Reads a message from a Redis stream after the given ID.
+        Returns a tuple of (msg_id, msg_data) if available, else None.
+        """
+        try:
+            # Read from the current priority stream using XREAD.
+            # xread({stream: ID}) returns messages with IDs strictly greater than the given ID.
+            # This ensures the same message is not processed twice.
+            res = self.client.xread({stream: last_id}, block=1000, count=1)
+            if res:
+                _, messages = res[0]
+                return messages[0]  # msg_id, msg_data
+        except Exception as e:
+            logging.error(f"[read_from_stream] Error reading from stream {stream}: {e}")
+        return None
     
     def get_job_status(self, job_id: str) -> str:
         """Returns job status or None if not found."""

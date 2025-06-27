@@ -18,15 +18,10 @@ class QueueStreamManager:
         """
         for stream in self.streams:
             try:
-                # Read from the current priority stream using XREAD.
-                # # xread({stream: ID}) returns messages with IDs strictly greater than the given ID.
-                # # This ensures the same message is not processed twice.
-                res = self.job_store.client.xread({stream: self.last_ids[stream]}, block=1000, count=1)
-                if not res:
-                    continue
-                _, messages = res[0]
-                msg_id, msg_data = messages[0]
-                return stream, msg_id, msg_data
+                result = self.job_store.read_from_stream(stream, self.last_ids[stream])
+                if result:
+                    msg_id, msg_data = result
+                    return stream, msg_id, msg_data
             except Exception as e:
                 logging.error(f"[stream] Error reading from stream {stream}: {e}")
                 continue
