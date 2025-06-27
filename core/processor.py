@@ -5,7 +5,7 @@ import json
 import logging
 
 from infrastructure.redis_queue import (
-    r, mark_job_status, increment_retry_count,
+    mark_job_status, increment_retry_count,
     clear_retry_count, send_to_dlq
 )
 from core.status import (
@@ -28,7 +28,7 @@ class JobProcessor:
         if payload.get("fail"):
             raise Exception("Simulated failure")
 
-    def execute(self, job_id: str, payload: dict, stream: str) -> str:
+    def execute(self, queue, job_id: str, payload: dict, stream: str) -> str:
         try:
             result = self.safe_process(job_id, payload)
             if result == "duplicate":
@@ -36,14 +36,14 @@ class JobProcessor:
             self._handle_success(job_id)
             return "completed"
         except Exception as e:
-            return self._handle_failure(job_id, payload, stream, e)
+            return self._handle_failure(queue, job_id, payload, stream, e)
 
     def _handle_success(self, job_id: str):
         mark_job_status(job_id, STATUS_COMPLETED)
         clear_retry_count(job_id)
         logging.info(f"Job {job_id} completed successfully.")
 
-    def _handle_failure(self, job_id: str, payload: dict, stream: str, error: Exception):
+    def _handle_failure(self, queue, job_id: str, payload: dict, stream: str, error: Exception):
         logging.warning(f"Job - {job_id} failed: {error}")
         retries = increment_retry_count(job_id)
 
@@ -54,15 +54,16 @@ class JobProcessor:
             if delay > 0:
                 time.sleep(delay)
 
-            r.xadd(stream, {"job_id": job_id, "payload": json.dumps(payload)})
+            queue.client.xadd(stream, {"job_id": job_id, "payload": json.dumps(payload)})
 
-            r.delete(get_dedup_key(job_id))  # release deduplication lock so other workers can pick it up if the current is busy.
+            queue.client.delete(get_dedup_key(job_id))  # release deduplication lock so other workers can pick it up if the current is busy.
             logging.info(f"Retrying job {job_id}, attempt - {retries} with delay - {delay} seconds")
             return "retrying"
         else:
             mark_job_status(job_id, STATUS_FAILED)
             clear_retry_count(job_id)
-            send_to_dlq(job_id, payload, reason=str(error))
-            r.delete(get_dedup_key(job_id))  # cleanup
+            if queue.config.enable_dlq:
+                send_to_dlq(queue.client, job_id, payload, reason=str(error))
+            queue.client.delete(get_dedup_key(job_id))  # cleanup
             logging.error(f"Job {job_id} reached max retries. Marked as failed.")
             return "failed"
