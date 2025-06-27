@@ -6,13 +6,13 @@ import logging
 import signal
 import threading
 
+from core.stream_manager import QueueStreamManager
 from core.processor import JobProcessor
 from core.status import STATUS_CANCELLED
 from core.registry import get_registered_queues
 
 from infrastructure.redis_conn import redis_client
 from infrastructure.redis_job_store import RedisJobStore
-from infrastructure.redis_stream import QueueStreamManager
 
 from config.logging_config import configure_logging
 from retry.factory import get_retry_strategy

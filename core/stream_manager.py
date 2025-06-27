@@ -1,4 +1,4 @@
-# infrastructure/redis_stream.py
+# core/stream_manager.py
 
 import logging
 from infrastructure.redis_job_store import RedisJobStore
