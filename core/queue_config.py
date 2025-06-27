@@ -14,7 +14,7 @@ class QueueConfig:
         enable_dlq: bool = True
     ):
         self.name = name
-        self.priorities = [p.lower() for p in (priorities or ["default"])]
+        self.priorities = [p.lower() for p in (priorities or settings.ALLOWED_PRIORITIES)]
         self.retry_limit = retry_limit or settings.max_retries
         self.enable_dlq = enable_dlq
 

@@ -21,7 +21,7 @@ class JobProcessor:
     def execute(self, queue, job_id: str, payload: dict, stream: str) -> str:
         @deduplicated(on_first_attempt=lambda job_id: self.job_store.mark_job_status(job_id, STATUS_IN_PROGRESS))
         def safe_process(job_id: str, payload: dict):
-            logging.info(f"Processing: {job_id} -> {payload}")
+            logging.info(f"[processor] Processing: {job_id} -> {payload}")
             # Simulated processing logic
             time.sleep(10)
             if payload.get("fail"):

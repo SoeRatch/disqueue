@@ -4,6 +4,10 @@ from fastapi import APIRouter, HTTPException
 from uuid import uuid4
 from api.models import JobRequest, JobResponse
 
+from core.registry import get_registered_queues
+
+from infrastructure.redis_conn import redis_client
+from infrastructure.redis_job_store import RedisJobStore
 
 from config.status_codes import (
     STATUS_CANCELLED,
@@ -12,30 +16,30 @@ from config.status_codes import (
     STATUS_IN_PROGRESS,
 )
 
-from infrastructure.redis_conn import redis_client
-from infrastructure.redis_job_store import RedisJobStore
-from config.queue_registry import REGISTERED_QUEUES
-from core.queue_config import DisqueueQueue
 
 router = APIRouter()
 
 job_store = RedisJobStore(redis_client)
+registered_queues = get_registered_queues(job_store)
 
 # Create a mapping of queue name to DisqueueQueue instance
-registered_queues = {
-    config.name: DisqueueQueue(config, redis_client)
-    for config in REGISTERED_QUEUES
-}
+queue_map = {q.name: q for q in registered_queues}
 
 @router.post("/", response_model=JobResponse)
 def submit_job(job: JobRequest):
     job_id = str(uuid4())
 
     queue_name = job.queue_name or "default"
-    queue = registered_queues.get(queue_name)
+    queue = queue_map.get(queue_name)
 
     if not queue:
         raise HTTPException(status_code=400, detail=f"Queue '{queue_name}' not registered.")
+    
+    if job.priority.lower() not in queue.config.priorities:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Priority '{job.priority}' not allowed in queue '{queue.name}'. Allowed: {queue.config.priorities}"
+        )
     
     try:
         success = queue.enqueue(job_id, job.payload, job.priority.lower())

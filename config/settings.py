@@ -2,6 +2,7 @@
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
+from typing import ClassVar, List
 
 class Settings(BaseSettings):
     # Redis
@@ -23,6 +24,8 @@ class Settings(BaseSettings):
     fixed_retry_delay: float = 1.0
     exponential_base_delay: float = 1.0
     exponential_factor: float = 2.0
+
+    ALLOWED_PRIORITIES: ClassVar[List[str]] = ["high", "medium", "low", "default"]
 
     model_config = SettingsConfigDict(
         env_file=".env",
