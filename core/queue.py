@@ -1,3 +1,5 @@
+# core/queue.py
+
 import json
 import logging
 from infrastructure.redis_queue import enqueue_job
@@ -12,10 +14,14 @@ class QueueConfig:
         enable_dlq: bool = True
     ):
         self.name = name
-        self.priorities = priorities or ["default"]
+        self.priorities = [p.lower() for p in (priorities or ["default"])]
         self.retry_limit = retry_limit or settings.max_retries
         self.enable_dlq = enable_dlq
-        self.streams = [f"disqueue:{self.name}:{p}" for p in self.priorities]
+
+    @property
+    def streams(self):
+        """Dynamically generate stream names for each priority level."""
+        return [f"disqueue:{self.name}:{p}" for p in self.priorities]
 
     def __repr__(self):
         return f"QueueConfig(name={self.name}, priorities={self.priorities})"
@@ -26,7 +32,6 @@ class DisqueueQueue:
         self.config = config
         self.client = client
         self.name = config.name
-        self.streams = config.streams
 
     def enqueue(self, job_id: str, payload: dict, priority: str = "default") -> bool:
         if priority not in self.config.priorities:
