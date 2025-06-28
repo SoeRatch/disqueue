@@ -351,26 +351,33 @@ RETRY_STRATEGY=exponential       # or "fixed"
 
 ## What’s Next
 
-We’ve completed Phase 1. Here’s a roadmap for the upcoming development phases:
+### Phase 2 (Completed – Stable Core Features)
+- ✅ **Job Prioritization** – High, medium, and low priority queues.
+- ✅ **Job Cancellation Support** – Ability to cancel in-progress or queued jobs.
+- ✅ **Dead-letter Queue (DLQ)** – Handle jobs that fail repeatedly.
+- ✅ **Exponential Backoff Retries** – Gradually increase retry intervals to reduce pressure.
+- ✅ **Pluggable Retry Strategies** — Decouple retry logic — choose fixed or exponential backoff.
+- ✅ **Idempotency & Deduplication** – Prevent duplicate job processing.
+- ✅ **Graceful Shutdown** – Cleanly stop workers on termination signals.
 
-### Phase 2 (In Progress – Stable Core Features)
-- ✅ **Job Prioritization** – High, medium, and low priority queues
-- ✅ **Job Cancellation Support** – Ability to cancel in-progress or queued jobs
-- ✅ **Dead-letter Queue (DLQ)** – Handle jobs that fail repeatedly
-- ✅ **Exponential Backoff Retries** – Gradually increase retry intervals to reduce pressure
-- ✅ **Idempotency & Deduplication** – Prevent duplicate job processing
-- ✅ **Graceful Shutdown** – Cleanly stop workers on termination signals
-- **Support for Multiple Queues** – Handle independent job streams
-- **Basic Dashboard** – CLI or minimal web UI to view jobs and statuses
+We’ve completed Phase 1 and Phase 2. Here’s a roadmap for the upcoming development phases:
 
-### Phase 3 (Planned – Advanced Production-Ready Features)
-- **Delayed Job Scheduling** – Enqueue jobs for future execution
-- **Horizontal Scaling** – Run multiple worker instances for concurrency
-- **Distributed Locking** – Ensure exactly-once processing using Redis Redlock or similar
-- **Rate Limiting** – Throttle job processing per job type or tenant
-- **Advanced Priority Queues** – Improve control over job ordering and preemption
-- **Observability & Metrics** – Add monitoring with Prometheus and Grafana
-- **Multi-Tenant Support** – Isolate jobs across users or projects
+### Phase 3 (Planned – Multi-Queue Architecture and Modularity)
+- **Support for Multiple Queues** – Handle independent job streams.
+- **Queue Registry System** - Declarative registration of queues , auto-load on boot.
+- **Modular Architecture** — Introduce a clear separation of concerns.
+- **JobProcessor / QueueStreamManager** - Orchestration of job execution.
+
+### Phase 4 (Planned – Advanced Production-Ready Features)
+- **Delayed Job Scheduling** – Enqueue jobs for future execution.
+- **Rate Limiting** – Throttle job processing per job type or tenant.
+- **Distributed Locking** – Ensure exactly-once processing using Redis Redlock or similar.
+- **Horizontal Scaling** – Run multiple worker instances for concurrency.
+- **Multi-Tenant Support** – Isolate jobs across users or projects.
+- **Advanced Priority Queues** – Improve control over job ordering and preemption.
+- **Basic Dashboard** — CLI or minimal web UI to view jobs and statuses.
+- **Observability & Metrics** – Add monitoring with Prometheus and Grafana.
+
 
 ---
 
