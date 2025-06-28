@@ -37,4 +37,4 @@ services:
     stop_grace_period: 90s  # <-- Give it 90 seconds before SIGKILL
     volumes:
       - .:/app
-    command: python worker/worker.py
+    command: python core/worker.py

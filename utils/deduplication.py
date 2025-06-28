@@ -2,7 +2,7 @@
 
 import logging
 from functools import wraps
-from task_queues.redis_queue import r
+from infrastructure.redis_conn import redis_client
 
 def deduplicated(ttl_seconds: int = 3600, on_first_attempt=None):
     """
@@ -31,7 +31,7 @@ def deduplicated(ttl_seconds: int = 3600, on_first_attempt=None):
                 raise ValueError("Missing job_id in payload.")
 
             dedup_key = get_dedup_key(job_id)
-            is_first_attempt = r.set(dedup_key, "processing", nx=True, ex=ttl_seconds)
+            is_first_attempt = redis_client.set(dedup_key, "processing", nx=True, ex=ttl_seconds)
             # logging.info(f"Set dedup key result for {job_id}: {is_first_attempt}")
 
             if not is_first_attempt:
@@ -46,7 +46,7 @@ def deduplicated(ttl_seconds: int = 3600, on_first_attempt=None):
 
             try:
                 result = func(*args, **kwargs)
-                r.set(dedup_key, "done", ex=86400)  # Keep for 1 day
+                redis_client.set(dedup_key, "done", ex=86400)  # Keep for 1 day
                 return result
             except Exception:
                 logging.exception(f"[Deduplication] Error processing job {job_id}")

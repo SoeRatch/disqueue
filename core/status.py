@@ -1,4 +1,4 @@
-# config/status_codes.py
+# core/status_codes.py
 
 STATUS_QUEUED = "queued"
 STATUS_IN_PROGRESS = "in_progress"
