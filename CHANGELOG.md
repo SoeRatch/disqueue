@@ -24,9 +24,11 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - Renamed `queue.py` to `queue_config.py` to resolve conflict with Python’s built-in `queue` module.
 
-### In Progress
-- Plugin system for user-defined job handlers.
-- Support for delayed job scheduling and metrics exposure (e.g., Prometheus endpoint).
+### Upcoming
+- Plugin System – Register custom job handlers per queue
+- Retry Strategy per Queue – Fixed/exponential configurable per queue
+- Built-in Job Timeouts – Auto-fail long-running jobs
+- Dynamic Queue Registration – Support runtime queue creation via both API and Python interface
 
 ---
 

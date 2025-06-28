@@ -348,12 +348,17 @@ RETRY_STRATEGY=exponential
 
 We’ve completed Phase 1 and Phase 2. Here’s a roadmap for the upcoming development phases:
 
-### Phase 3 - Multi-Queue Architecture (In Progress)
+### Phase 3 - Multi-Queue Architecture and Extensibility (In Progress)
 
 - ✅ **Declarative Queue Registry**
 - ✅ **Multi-queue + multi-priority support**
 - ✅ **Modular refactor (`JobProcessor`, `StreamManager`)**
 - ✅ **Enhanced API extensibility**
+- **Plugin System / Custom Job Handlers**
+- **Retry Strategy per Queue**
+- **Built-in Job Timeouts**
+- **Dynamic Queue Registration**
+
 
 ### Phase 4 – Advanced Features (Planned)
 - **Plugin system for jobs**
