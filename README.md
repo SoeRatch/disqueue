@@ -1,6 +1,6 @@
 # Disqueue
 
-**Disqueue** is a minimal, lightweight distributed job queue system inspired by Celery and BullMQ. Built with FastAPI, Redis Streams, and Docker, it supports job prioritization, retries, cancellation, dead-letter queue and Redis-powered idempotency and deduplication — all while staying simple and easy to reason about.
+**Disqueue** is a lightweight distributed job queue system inspired by Celery and BullMQ. Built with FastAPI, Redis Streams, and Docker, it supports job prioritization, retries, cancellation, dead-letter queue and Redis-powered idempotency and deduplication — all while remaining modular, extensible, and developer-friendly.
 
 ---
 ## Table of Contents
@@ -30,86 +30,83 @@
 
 ## Features
 
-- **Job Submission**: Submit jobs via a REST API to queue jobs.
-- **Status Tracking**: Monitor job states like `queued`, `in_progress`, `retrying`, `completed`,`failed` and `cancelled`.
-- **Redis Integration**: Uses Redis Streams and Hashes for job management.
-- **Retry Mechanism**: Automatic retries for failed jobs up to a configurable maximum.
-- **Dockerized**: Easily reproducible local development environment.
-- **Priority Handling**: Supports `high`, `medium`, and `low` priority job queues.
-- **Dead-letter Queue (DLQ)**: Automatically moves jobs to a DLQ after exceeding retry limit for later inspection or manual retry.
-- **Job Cancellation**: Cancel jobs before they are processed by a worker.
-- **Idempotency & Deduplication**: Redis-powered lock mechanism ensures a job is never processed by more than one worker simultaneously.
-- **Graceful Shutdown**: Worker completes the current job before exiting on termination signals (SIGINT/SIGTERM).
-
+- **Multiple Queues** – Register and manage multiple job queues declaratively.
+- **Priority Handling** – Supports `high`, `medium`, `low` and `default` priority job queues.
+- **Retry Mechanism** – Automatic retries with configurable strategy and limits.
+- **Dead-letter Queue (DLQ)** – Failed jobs are automatically moved to a DLQ after exceeding retry limit for inspection or manual retry.
+- **Job Cancellation** – Cancel jobs before they are processed by a worker.
+- **Idempotency & Deduplication** – Redis-powered lock mechanism ensures a job is never processed by more than one worker simultaneously.
+- **Graceful Shutdown** – Worker completes the current job cleanly on SIGINT/SIGTERM.
+- **Redis Integration** – Uses Redis Streams and Hashes for job management.
+- **Dockerized** – Easily reproducible local development environment.
+- **FastAPI API Layer** – REST interface for job submission, status, cancellation, and queue discovery.
+- **Modular Design** – Decoupled architecture for clean separation of concerns.
+- **Easily Extensible** – Designed with modularity in mind to support open-source growth.
 
 ---
 
 ## Stack
 
-- **FastAPI** – REST API server
-- **Redis Streams** – Priority queues
-- **Python** – Worker logic and APIs
-- **Docker & Docker Compose** – Containerization
-- **Pydantic** – Configuration parsing via `.env`
+- **FastAPI** – REST API framework.
+- **Redis Streams** – Message broker.
+- **Python** – Worker logic and APIs.
+- **Docker & Docker Compose** – Containerization.
+- **Pydantic** – Typed settings and schema validation.
 
 
 ---
 
 ## Architecture Overview
 
-- Jobs are added to Redis Streams based on their priority level.
-- Job metadata like status, retry count, and last stream ID is stored in Redis Hashes.
-- Worker continuously reads from streams in strict priority order.
-- Deduplication logic ensures only one worker processes a job at a time.
-- FastAPI provides endpoints for job submission, status checks, and cancellation.
-- Failed jobs are retried up to a max retry limit and then moved to a Dead-letter Queue (DLQ).
-- FastAPI provides endpoints to submit and query jobs.
-- Cancelled jobs are skipped but acknowledged to maintain stream offsets to avoid reprocessing.
+- Jobs are added to Redis Streams based on queue name and priority.
+- Job metadata (status, retry count, last stream ID, etc.) is tracked in Redis Hashes.
+- Workers poll queues using a configurable priority order.
+- Deduplication ensures only one worker processes a job at a time.
+- Failed jobs are retried up to a max retry limit, and moved to DLQ after retries exceed limit.
+- Each worker is aware of multiple queues and priorities using a central registry.
+- Cancelled jobs are acknowledged to maintain stream offsets and avoid reprocessing.
 - Worker logic is modularized via a StreamManager (stream polling) and JobProcessor (execution, retries, DLQ, deduplication).
 - Workers support **graceful shutdown**, completing the in-progress job before exiting.
-
 
 ---
 
 ## Components
 
 ### `api/` – FastAPI Service
-- POST `/jobs/` – Submit a job with payload and priority.
-- GET `/jobs/{job_id}` – Retrieve the status of a specific job.
+- POST `/jobs/` – Submit jobs with payload, priority, and queue.
+- GET `/jobs/{job_id}` – Check status of a specific job.
 - POST `/jobs/{job_id}/cancel` – Cancel a job if it's still queued or retrying.
+- GET `/queues/` – List registered queues and configurations.
 
-### `worker/worker.py` – Worker Orchestrator
-- Continuously polls Redis Streams (`XREAD`) in strict priority order.
+### `core/worker.py` – Main Worker Loop
+- Loads all registered queues and initializes `QueueStreamManager`.
 - Delegates job execution to `JobProcessor`.
-- Uses `StreamManager` to manage stream offsets and fetch jobs.
-- Skips cancelled jobs and advances the stream pointer to avoid reprocessing.
-- Supports **graceful shutdown** using signal handlers (SIGINT/SIGTERM). When stopped, the worker finishes the current job cleanly before exiting.
+- Supports safe exit on shutdown signal.
 
-### `streams/manager.py` – Stream Manager
-- Manages stream offsets (`last_id`) for each priority stream.
-- Handles reading jobs using `XREAD` from Redis.
-- Ensures each message is read and acknowledged only once.
-- Cleanly decouples stream reading from job processing.
+### `core/queue_config.py` – Queue Registration
+- Declarative queue registration via config.
+- Central registry supports multiple named queues with custom priority schemes.
 
-### `jobs/processor.py` – Job Processor
-- Executes jobs with:
-  - Redis-based deduplication lock.
-  - Retry strategy (fixed or exponential).
-  - Status tracking (`in_progress`, `completed`, etc.).
-  - DLQ handoff after exhausting retries.
-- Isolates the business logic from stream reading and orchestration.
+### `core/stream_manager.py` – QueueStreamManager
+- Reads from Redis streams using `XREAD`.
+- Manages stream offset tracking (`last_id`).
+- Polls in priority order.
+
+### `core/processor.py` – JobProcessor
+- Core job logic:
+  - Deduplication
+  - Status updates
+  - Retry handling
+  - DLQ fallback
+
+### `infrastructure/redis_job_store.py`
+- Redis interface for enqueueing, job status, metadata, and stream tracking.
+- Used by `JobProcessor` and `QueueStreamManager`.
 
 ### `utils/deduplication.py`
-- Provides a reusable `@deduplicated()` decorator that wraps job processing in a Redis `SET NX` lock.
-- Ensures only the first worker to acquire the lock executes the job.
+- Provides a `@deduplicated()` decorator using Redis `SET NX` locks.
+- Ensures only the first worker to acquire the lock processes the job.
 - Automatically releases the lock on failure or marks it `done` on success.
-
-### `task_queues/redis_queue.py`
-- Redis utility functions for:
-  - Enqueueing
-  - Tracking job status and retries
-  - Managing stream offsets
-  - Sending failed jobs to DLQ
 
 ---
 
@@ -118,25 +115,36 @@
 ```
 disqueue/
 ├── api/
-│   ├── main.py          # FastAPI application
-│   └── models.py        # Pydantic models for request/response
+│   ├── main.py               # FastAPI entry point
+│   ├── models.py             # Request/response schemas
+│   └── routes/
+│       ├── job_routes.py     # Job-related API endpoints
+│       └── queue_routes.py   # Queue-related API endpoints
 ├── config/
-│   └── settings.py      # Configuration settings
-├── task_queues/
-│   └── redis_queue.py   # Redis interaction logic
+│   ├── logging_config.py     # Sets up logging format and levels
+│   ├── queue_registry.py     # Declares and registers supported queues and priorities
+│   └── settings.py           # Loads env vars and app settings via Pydantic
+├── core/
+│   ├── processor.py          # Core job logic: retry, DLQ, status, deduplication
+│   ├── queue_config.py       # Models for queue configs used by registry
+│   ├── registry.py           # Central place for accessing registered queues
+│   ├── status.py             # Status enum and helpers
+│   ├── stream_manager.py     # Polls Redis Streams in priority order
+│   └── worker.py             # Main worker loop and graceful shutdown logic
+├── infrastructure/
+│   ├── redis_conn.py         # Sets up Redis connection
+│   └── redis_job_store.py    # Abstractions for enqueuing, tracking, and DLQ
+├── retry/
+│   ├── factory.py            # Returns retry strategy instance based on config
+│   └── strategies.py         # Fixed and exponential retry implementations
 ├── utils/
-│   └── deduplication.py # Idempotency and deduplication logic
-├── worker/
-│   └── worker.py        # Worker process to handle jobs
-├── streams/
-│   └── manager.py        # Stream reading and offset tracking
-├── jobs/
-│   └── processor.py      # Core job execution logic
-├── Dockerfile.api       # Dockerfile for API service
-├── Dockerfile.worker    # Dockerfile for Worker service
-├── docker-compose.yml   # Docker Compose configuration
-├── requirements.txt     # Python dependencies
-└── README.md            # Project documentation
+│   └── deduplication.py      # Redis lock decorator to prevent duplicate execution
+├── .env.example
+├── requirements.txt
+├── Dockerfile.api
+├── Dockerfile.worker
+├── docker-compose.yml
+└── README.md
 ```
 
 ---
@@ -170,7 +178,6 @@ disqueue/
 
 3. **Start Docker Services**:
 
-    On first run or after making changes to dependencies:
     ```bash
     docker compose up --build -d
     ```
@@ -181,10 +188,11 @@ disqueue/
     ```
 
     Services started:
-
     - `api` at [http://localhost:8000](http://localhost:8000)
     - `worker` (background processor)
     - `redis` (stream/message broker)
+    
+    Visit the API: [http://localhost:8000/docs](http://localhost:8000/docs)
   
 4. **(Optional) Extend Worker Shutdown Timeout**:
     To prevent Docker from force-killing the worker while it’s processing a job, you can extend the shutdown grace period in `docker-compose.yml`:
@@ -201,80 +209,65 @@ disqueue/
 
 ### 1. Queue a Job:
 
- POST `/jobs/` to submit a job with payload and priority.
-
   ```bash
   curl -X POST http://localhost:8000/jobs/ \
       -H "Content-Type: application/json" \
-      -d '{"payload": {"msg": "urgent"}, "priority": "high"}'
+      -d '{
+           "queue_name": "default",
+           "priority": "high",
+           "payload": {"msg": "process this"}
+         }'
   ```
   ```bash
   curl -X POST http://localhost:8000/jobs/ \
       -H "Content-Type: application/json" \
-      -d '{"payload": {"msg": "medium"}, "priority": "low"}'
-  ```
-
- Response:
-
-  ```json
-  {
-    "job_id": "uuid-1234",
-    "status": "queued"
-  }
+      -d '{
+           "queue_name": "image_processing",
+           "priority": "low",
+           "payload": {"msg": "low priority message from queue - image_processing"}
+         }'
   ```
 
 ### 2. Check Job Status:
 
 ```bash
-curl http://localhost:8000/jobs/uuid-1234
-```
-
-Response:
-
-```json
-{
-  "job_id": "uuid-1234",
-  "status": "completed"
-}
+curl http://localhost:8000/jobs/<job_id>
 ```
 
 ### 3. Simulate a Failing Job:
-
 ```bash
 
 curl -X POST http://localhost:8000/jobs/ \
      -H "Content-Type: application/json" \
-     -d '{"payload": {"fail": true}, "priority": "medium"}'
+     -d '{
+           "queue_name": "image_processing",
+           "priority": "high",
+           "payload": {"fail": true}
+         }'
 ```
-
-The system will retry the job up to the `MAX_RETRIES` limit.
+> This simulates a failure, and the system retries the job according to the configured strategy.
 
 ### 4. Cancel a Queued Job:
-Cancels a job that is either queued or retrying.
 ```bash
-curl -X POST http://localhost:8000/jobs/uuid-1234/cancel
+curl -X POST http://localhost:8000/jobs/<job_id>/cancel
 ```
-Response:
+> Cancels a job that is either queued or retrying.
 
-```json
-{
-  "job_id": "uuid-1234",
-  "status": "cancelled"
-}
+### 5. Discover Registered Queues
+
+```bash
+curl http://localhost:8000/queues/
 ```
-> **Note:** If the job is already in progress or completed, cancellation will not stop it.
-
 ---
 
 ## Retry Mechanism
-
-- If a job fails (e.g., the payload contains `"fail": true`), the system retries it.
-- Retries are capped at a configurable `max_retries` (default: 3).
+- Retries are triggered on exceptions.
+- Configurable via `.env`.
 - Two retry strategies are supported:
   - **fixed**: Retry after a constant delay (e.g., 1 second).
   - **exponential**: Retry after increasing delays (e.g., 1s → 2s → 4s → 8s).
-- The strategy and delays are configured in the `.env` file.
-- Once retries are exhausted, the job is moved to the **Dead-letter Queue**.
+- Retry attempts are tracked via `job_retries:{job_id}` in Redis.
+- Once retries are exhausted, the job moves to the DLQ.
 
 ---
 
@@ -285,9 +278,9 @@ Response:
 Jobs that exceed the maximum retry limit are moved to a Redis Stream called `job:dlq` for post-mortem analysis.
 
 Each DLQ message includes:
-- `job_id`: Original job ID
-- `payload`: Original job payload
-- `reason`: Reason for failure (e.g., exception message)
+- `job_id`
+- `payload`
+- `reason`
 
 You can inspect the DLQ via Redis CLI:
 
@@ -301,10 +294,10 @@ You can inspect the DLQ via Redis CLI:
 
 In distributed queue systems, it’s common for the same job to be picked up more than once — either due to retries, network glitches, or multiple workers competing. Disqueue avoids this using a Redis-based locking mechanism via a reusable decorator.
 
-The core logic is defined in `utils/deduplication.py` and applied to the job processor in `worker/worker.py`:
+The core logic is defined in `utils/deduplication.py` and applied to the job processor in `core/processor.py`:
 
 ```python
-# worker/worker.py
+# core/worker.py
 
 @deduplicated()
 def safe_process(job_id, payload):
@@ -317,8 +310,8 @@ def safe_process(job_id, payload):
 ### How it works
 - When a job is picked up, a Redis key `dedup:{job_id}` is set using `SET NX`, acting as a lock.
 - If the key already exists, the job is considered already in progress or processed — so it’s skipped.
-- On successful execution, the lock is converted to a `done` marker with a 24-hour TTL.
-- If the job fails, the lock is explicitly removed to allow retries.
+- On success, mark `done` with a 24-hour TTL.
+- On failure, the lock is explicitly removed to allow retries.
 
 This ensures:
 - ✅ **Safe concurrency**: In multi-worker environments, only one worker ever processes a job.
@@ -331,46 +324,46 @@ This ensures:
 
 ## Configuration
 
-All environment-specific settings are defined in `.env` and loaded through a centralized configuration module (`config/settings.py`). This includes Redis connections, retry strategies, stream names, and default priorities.
+- Defined via `.env` and loaded using Pydantic in `config/settings.py`.
 
-### How It Works
-
-- Configuration is injected via `.env` or environment variables.
-- Values are parsed using Pydantic settings classes.
-- This setup ensures easy overrides in development, testing, or production environments.
-- The config layer is designed to evolve — for example, switching to database-driven or remote config management later.
-
-### Example `.env`
-
+### Example
 ```env
 REDIS_URL=redis://redis:6379
 API_PORT=8000
-RETRY_STRATEGY=exponential       # or "fixed"
+RETRY_STRATEGY=exponential
 ```
+
 ---
 
 ## What’s Next
 
-We’ve completed Phase 1. Here’s a roadmap for the upcoming development phases:
+### ✅ Phase 2 – Stable Core Features (Completed)
+- ✅ **Job Prioritization** 
+- ✅ **Job Cancellation Support**
+- ✅ **Dead-letter Queue (DLQ)**
+- ✅ **Exponential Backoff Retries**
+- ✅ **Pluggable Retry Strategies**
+- ✅ **Idempotency & Deduplication**
+- ✅ **Graceful Shutdown**
 
-### Phase 2 (In Progress – Stable Core Features)
-- ✅ **Job Prioritization** – High, medium, and low priority queues
-- ✅ **Job Cancellation Support** – Ability to cancel in-progress or queued jobs
-- ✅ **Dead-letter Queue (DLQ)** – Handle jobs that fail repeatedly
-- ✅ **Exponential Backoff Retries** – Gradually increase retry intervals to reduce pressure
-- ✅ **Idempotency & Deduplication** – Prevent duplicate job processing
-- ✅ **Graceful Shutdown** – Cleanly stop workers on termination signals
-- **Support for Multiple Queues** – Handle independent job streams
-- **Basic Dashboard** – CLI or minimal web UI to view jobs and statuses
+We’ve completed Phase 1 and Phase 2. Here’s a roadmap for the upcoming development phases:
 
-### Phase 3 (Planned – Advanced Production-Ready Features)
-- **Delayed Job Scheduling** – Enqueue jobs for future execution
-- **Horizontal Scaling** – Run multiple worker instances for concurrency
-- **Distributed Locking** – Ensure exactly-once processing using Redis Redlock or similar
-- **Rate Limiting** – Throttle job processing per job type or tenant
-- **Advanced Priority Queues** – Improve control over job ordering and preemption
-- **Observability & Metrics** – Add monitoring with Prometheus and Grafana
-- **Multi-Tenant Support** – Isolate jobs across users or projects
+### Phase 3 - Multi-Queue Architecture (In Progress)
+
+- ✅ **Declarative Queue Registry**
+- ✅ **Multi-queue + multi-priority support**
+- ✅ **Modular refactor (`JobProcessor`, `StreamManager`)**
+- ✅ **Enhanced API extensibility**
+
+### Phase 4 – Advanced Features (Planned)
+- **Plugin system for jobs**
+- **Delayed Job Scheduling**
+- **Rate Limiting**
+- **Distributed Locking (Redlock)**
+- **Metrics (Prometheus)**
+- **CLI / Dashboard**
+- **Horizontal Scaling**
+- **Multi-Tenant Support**
 
 ---
 
@@ -394,3 +387,5 @@ We’ve completed Phase 1. Here’s a roadmap for the upcoming development pha
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
+
+> Contributions welcome — feel free to open issues or PRs!
