@@ -16,6 +16,8 @@ All notable changes to this project will be documented in this file.
 - New FastAPI route (`/queues/`) to expose registered queue configurations.
 - Refactored project structure into modular domains: `core`, `infrastructure`, `api`, `retry`, and `utils`.
 - Plugin System – Handlers can now be registered via register_handler(queue_name, handler_fn) for custom job logic per queue.
+- Retry Strategy per Queue – Fixed/exponential configurable per queue.
+- Configurable Retry Limit – Per-queue retry cap (retry_limit) integrated into retry strategy factory.
 
 ### Changed
 - Refactored `worker.py` to support multiple queues and priority-aware job polling.
@@ -26,7 +28,6 @@ All notable changes to this project will be documented in this file.
 - Renamed `queue.py` to `queue_config.py` to resolve conflict with Python’s built-in `queue` module.
 
 ### Upcoming
-- Retry Strategy per Queue – Fixed/exponential configurable per queue
 - Built-in Job Timeouts – Auto-fail long-running jobs
 - Dynamic Queue Registration – Support runtime queue creation via both API and Python interface
 
