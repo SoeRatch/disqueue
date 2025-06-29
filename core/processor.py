@@ -12,6 +12,7 @@ from core.status import (
 )
 from utils.deduplication import deduplicated, get_dedup_key
 from infrastructure.redis_job_store import RedisJobStore
+from core.handler_registry import get_handler
 
 class JobProcessor:
     def __init__(self, job_store: RedisJobStore, retry_strategy):
@@ -20,14 +21,21 @@ class JobProcessor:
 
     def execute(self, queue, job_id: str, payload: dict, stream: str) -> str:
         @deduplicated(on_first_attempt=lambda job_id: self.job_store.mark_job_status(job_id, STATUS_IN_PROGRESS))
-        def safe_process(job_id: str, payload: dict):
+        def safe_process(job_id: str, payload: dict, queue_name: str):
             logging.info(f"[processor] Processing: {job_id} -> {payload}")
-            # Simulated processing logic
-            time.sleep(10)
+            # Simulate Failed job
             if payload.get("fail"):
                 raise Exception("Simulated failure")
+            
+            handler = get_handler(queue_name)
+            if not handler:
+                raise ValueError(f"No handler registered for queue '{queue_name}'. Use register_handler('{queue_name}', your_function)")
+            # Call user-defined function
+            logging.info(f"[processor] Using handler: {handler.__name__} for queue: {queue_name}")
+            handler(payload)
+
         try:
-            result = safe_process(job_id, payload)
+            result = safe_process(job_id, payload, queue.name)
             if result == "duplicate":
                 return "duplicate"
             self._handle_success(job_id)
