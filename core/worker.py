@@ -42,15 +42,18 @@ def start_worker():
 
     queues = get_registered_queues(job_store)  # returns list[DisqueueQueue]
     logging.info(f"Registered queues: {[q.name for q in queues]}")
-    stream_managers = [(q, QueueStreamManager(q,job_store)) for q in queues]
 
-    
-    retry_strategy = get_retry_strategy()
-    processor = JobProcessor(job_store, retry_strategy)
+    # Create stream managers and processors for each queue
+    queue_contexts = []
+    for queue in queues:
+        stream_manager = QueueStreamManager(queue, job_store)
+        retry_strategy = get_retry_strategy(queue.config.retry_strategy)
+        processor = JobProcessor(job_store, retry_strategy)
+        queue_contexts.append((queue, stream_manager, processor))
     
     while not shutdown_event.is_set():
         try:
-            for queue, stream_manager in stream_managers:
+            for queue, stream_manager, processor in queue_contexts:
                 result = stream_manager.get_next_job()
                 if not result:
                     time.sleep(0.1)  # small cooldown to avoid CPU spin
