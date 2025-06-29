@@ -8,7 +8,8 @@ from core.queue_config import QueueConfig
 REGISTERED_QUEUES = [
     QueueConfig(name="default"), # implies all allowed priorities
     # Example:
-    QueueConfig(name="image_processing", priorities=["high", "low"]), # custom subset
-    QueueConfig(name="email", priorities=["high", "default"]),  # Custom subset
-    # QueueConfig(name="billing", enable_dlq=False),
+    QueueConfig(name="image_processing", priorities=["high", "medium", "low"], retry_strategy="exponential"), # custom subset
+    QueueConfig(name="email", priorities=["high", "default"],retry_strategy="fixed"),  # Custom subset
+    QueueConfig(name="billing", retry_strategy="exponential", retry_limit=5, enable_dlq=True),
+
 ]

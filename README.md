@@ -33,7 +33,7 @@
 
 - **Multiple Queues** – Register and manage multiple job queues declaratively.
 - **Priority Handling** – Supports `high`, `medium`, `low` and `default` priority job queues.
-- **Retry Mechanism** – Automatic retries with configurable strategy and limits.
+- **Retry Mechanism** – Automatic retries with per-queue configurable strategy (fixed, exponential) and retry limits.
 - **Dead-letter Queue (DLQ)** – Failed jobs are automatically moved to a DLQ after exceeding retry limit for inspection or manual retry.
 - **Job Cancellation** – Cancel jobs before they are processed by a worker.
 - **Idempotency & Deduplication** – Redis-powered lock mechanism ensures a job is never processed by more than one worker simultaneously.
@@ -265,7 +265,7 @@ curl http://localhost:8000/jobs/<job_id>
 curl -X POST http://localhost:8000/jobs/ \
      -H "Content-Type: application/json" \
      -d '{
-           "queue_name": "image_processing",
+           "queue_name": "billing",
            "priority": "high",
            "payload": {"fail": true}
          }'
@@ -287,12 +287,13 @@ curl http://localhost:8000/queues/
 
 ## Retry Mechanism
 - Retries are triggered on exceptions.
-- Configurable via `.env`.
+- Configurable defaults via `.env`.
+- Configurable per queue via `QueueConfig`, including `retry_strategy` and `retry_limit`.
 - Two retry strategies are supported:
   - **fixed**: Retry after a constant delay (e.g., 1 second).
   - **exponential**: Retry after increasing delays (e.g., 1s → 2s → 4s → 8s).
 - Retry attempts are tracked via `job_retries:{job_id}` in Redis.
-- Once retries are exhausted, the job moves to the DLQ.
+- Once retry limit is reached, the job moves to the DLQ (if enabled).
 
 ---
 
@@ -380,7 +381,7 @@ We’ve completed Phase 1 and Phase 2. Here’s a roadmap for the upcoming dev
 - ✅ **Modular refactor (`JobProcessor`, `StreamManager`)**
 - ✅ **Enhanced API extensibility**
 - ✅ **Plugin System / Custom Job Handlers**
-- **Retry Strategy per Queue**
+- ✅ **Retry Strategy per Queue**
 - **Built-in Job Timeouts**
 - **Dynamic Queue Registration**
 
