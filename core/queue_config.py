@@ -3,18 +3,22 @@
 import logging
 from config.settings import settings
 from infrastructure.redis_job_store import RedisJobStore
+from typing import Literal
 
 
 class QueueConfig:
+    
     def __init__(
         self,
         name: str,
-        priorities=None,
+        priorities: list[str] = None,
+        retry_strategy: Literal["fixed", "exponential"] = "fixed",
         retry_limit: int = None,
         enable_dlq: bool = True
     ):
         self.name = name
         self.priorities = [p.lower() for p in (priorities or settings.ALLOWED_PRIORITIES)]
+        self.retry_strategy = retry_strategy
         self.retry_limit = retry_limit or settings.max_retries
         self.enable_dlq = enable_dlq
 
@@ -22,9 +26,11 @@ class QueueConfig:
     def streams(self):
         """Dynamically generate stream names for each priority level."""
         return [f"disqueue:{self.name}:{p}" for p in self.priorities]
-
+    
     def __repr__(self):
-        return f"QueueConfig(name={self.name}, priorities={self.priorities})"
+        return (f"QueueConfig(name={self.name}, priorities={self.priorities}, "
+                f"retry_strategy={self.retry_strategy}, retry_limit={self.retry_limit})")
+
 
 
 class DisqueueQueue:
