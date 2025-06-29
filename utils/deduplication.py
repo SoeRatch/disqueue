@@ -17,12 +17,12 @@ def deduplicated(ttl_seconds: int = 3600, on_first_attempt=None):
         def wrapper(*args, **kwargs):
 
             # Detect if method or function
-            if len(args) == 3:
-                # Method: self, job_id, payload
-                _, job_id, _ = args
-            elif len(args) == 2:
-                # Function: job_id, payload
-                job_id, _= args
+            if len(args) == 4:
+                # Method: self, job_id, payload, queue_name
+                _, job_id, _, _ = args
+            elif len(args) == 3:
+                # Function: job_id, payload, queue_name
+                job_id, _, _= args
             else:
                 raise ValueError("Unexpected args format in deduplicated function")
             
