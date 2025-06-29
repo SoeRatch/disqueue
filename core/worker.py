@@ -6,6 +6,8 @@ import logging
 import signal
 import threading
 
+import handlers.registry  # Triggers registration of predefined handlers on start 
+
 from core.stream_manager import QueueStreamManager
 from core.processor import JobProcessor
 from core.status import STATUS_CANCELLED
