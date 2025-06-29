@@ -47,7 +47,10 @@ def start_worker():
     queue_contexts = []
     for queue in queues:
         stream_manager = QueueStreamManager(queue, job_store)
-        retry_strategy = get_retry_strategy(queue.config.retry_strategy)
+        retry_strategy = get_retry_strategy(
+            strategy_name = queue.config.retry_strategy,
+            retry_limit = queue.config.retry_limit
+            )
         processor = JobProcessor(job_store, retry_strategy)
         queue_contexts.append((queue, stream_manager, processor))
     

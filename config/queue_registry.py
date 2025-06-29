@@ -10,5 +10,6 @@ REGISTERED_QUEUES = [
     # Example:
     QueueConfig(name="image_processing", priorities=["high", "medium", "low"], retry_strategy="exponential"), # custom subset
     QueueConfig(name="email", priorities=["high", "default"],retry_strategy="fixed"),  # Custom subset
-    # QueueConfig(name="billing", enable_dlq=False),
+    QueueConfig(name="billing", retry_strategy="exponential", retry_limit=5, enable_dlq=True),
+
 ]
