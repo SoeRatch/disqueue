@@ -28,10 +28,10 @@ class JobProcessor:
                 raise Exception("Simulated failure")
             
             handler = get_handler(queue_name)
-            logging.info(f"[processor] Using handler: {handler.__name__} for queue: {queue_name}")
             if not handler:
-                raise ValueError(f"No handler registered for queue '{queue_name}'")
+                raise ValueError(f"No handler registered for queue '{queue_name}'. Use register_handler('{queue_name}', your_function)")
             # Call user-defined function
+            logging.info(f"[processor] Using handler: {handler.__name__} for queue: {queue_name}")
             handler(payload)
 
         try:
