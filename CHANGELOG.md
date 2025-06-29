@@ -15,17 +15,17 @@ All notable changes to this project will be documented in this file.
 - Redis-backed **metadata tracking** (e.g., stream offsets, retry counts).
 - New FastAPI route (`/queues/`) to expose registered queue configurations.
 - Refactored project structure into modular domains: `core`, `infrastructure`, `api`, `retry`, and `utils`.
+- Plugin System – Handlers can now be registered via register_handler(queue_name, handler_fn) for custom job logic per queue.
 
 ### Changed
-- `worker.py` refactored to support multiple queues and priority-aware job polling.
-- Redis logic moved into `RedisJobStore` for better separation of infrastructure concerns.
-- Streamlined architecture: cleaner boundaries between polling, processing, and persistence layers.
+- Refactored `worker.py` to support multiple queues and priority-aware job polling.
+- Moved Redis-specific logic to `RedisJobStore` for better separation of infrastructure concerns.
+- Streamlined architecture: cleaner boundaries between polling, job processing, and Redis access.
 
 ### Fixed
 - Renamed `queue.py` to `queue_config.py` to resolve conflict with Python’s built-in `queue` module.
 
 ### Upcoming
-- Plugin System – Register custom job handlers per queue
 - Retry Strategy per Queue – Fixed/exponential configurable per queue
 - Built-in Job Timeouts – Auto-fail long-running jobs
 - Dynamic Queue Registration – Support runtime queue creation via both API and Python interface

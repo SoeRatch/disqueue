@@ -9,6 +9,7 @@
 - [Stack](#stack)
 - [Architecture Overview](#architecture-overview)
 - [Components](#components) 
+- [Registering Custom Job Handlers](#registering-custom-job-handlers)
 - [Directory Structure](#directory-structure)  
 - [Getting Started](#getting-started)  
   - [Prerequisites](#prerequisites)  
@@ -42,6 +43,7 @@
 - **FastAPI API Layer** – REST interface for job submission, status, cancellation, and queue discovery.
 - **Modular Design** – Decoupled architecture for clean separation of concerns.
 - **Easily Extensible** – Designed with modularity in mind to support open-source growth.
+- **Plugin System / Custom Job Handlers** – Register custom logic per queue to decouple business logic from the core processor.
 
 ---
 
@@ -98,6 +100,7 @@
   - Status updates
   - Retry handling
   - DLQ fallback
+  - Custom job handler execution
 
 ### `infrastructure/redis_job_store.py`
 - Redis interface for enqueueing, job status, metadata, and stream tracking.
@@ -107,6 +110,27 @@
 - Provides a `@deduplicated()` decorator using Redis `SET NX` locks.
 - Ensures only the first worker to acquire the lock processes the job.
 - Automatically releases the lock on failure or marks it `done` on success.
+
+---
+
+## Registering Custom Job Handlers
+
+Disqueue supports a **plugin-style handler system**. You can register a function per queue name that will be invoked when jobs from that queue are processed. This allows you to decouple business logic from the core infrastructure.
+
+### Register a handler
+
+```python
+# handlers/registry.py
+
+from core.registry import register_handler
+
+def handle_image_job(payload: dict):
+    print("Handling image job:", payload)
+
+register_handler("image_processing", handle_image_job)
+```
+
+> Make sure to import `handlers/registry.py` inside `worker.py` or the startup entrypoint so the registration gets triggered.
 
 ---
 
@@ -125,6 +149,7 @@ disqueue/
 │   ├── queue_registry.py     # Declares and registers supported queues and priorities
 │   └── settings.py           # Loads env vars and app settings via Pydantic
 ├── core/
+│   ├── handler_registry.py
 │   ├── processor.py          # Core job logic: retry, DLQ, status, deduplication
 │   ├── queue_config.py       # Models for queue configs used by registry
 │   ├── registry.py           # Central place for accessing registered queues
@@ -354,7 +379,7 @@ We’ve completed Phase 1 and Phase 2. Here’s a roadmap for the upcoming dev
 - ✅ **Multi-queue + multi-priority support**
 - ✅ **Modular refactor (`JobProcessor`, `StreamManager`)**
 - ✅ **Enhanced API extensibility**
-- **Plugin System / Custom Job Handlers**
+- ✅ **Plugin System / Custom Job Handlers**
 - **Retry Strategy per Queue**
 - **Built-in Job Timeouts**
 - **Dynamic Queue Registration**
