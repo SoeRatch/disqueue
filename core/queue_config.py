@@ -14,13 +14,15 @@ class QueueConfig:
         priorities: list[str] = None,
         retry_strategy: Literal["fixed", "exponential"] = "fixed",
         retry_limit: int = None,
-        enable_dlq: bool = True
+        enable_dlq: bool = True,
+        timeout: int = None
     ):
         self.name = name
         self.priorities = [p.lower() for p in (priorities or settings.ALLOWED_PRIORITIES)]
         self.retry_strategy = retry_strategy
         self.retry_limit = retry_limit or settings.max_retries
         self.enable_dlq = enable_dlq
+        self.timeout = timeout or settings.default_job_timeout
 
     @property
     def streams(self):

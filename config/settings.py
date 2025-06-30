@@ -27,6 +27,8 @@ class Settings(BaseSettings):
 
     ALLOWED_PRIORITIES: ClassVar[List[str]] = ["high", "medium", "low", "default"]
 
+    default_job_timeout: int = 60
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="allow"
